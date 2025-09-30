@@ -179,17 +179,17 @@ export function PatientManagement({ userRole, onStatsUpdate }: PatientManagement
           </div>
 
           {/* Patients Table */}
-          <div className="rounded-md border">
-            <Table>
+          <div className="rounded-md border overflow-x-auto">
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>MRN</TableHead>
-                  <TableHead>Patient Name</TableHead>
-                  <TableHead>Age/Gender</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Insurance</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="min-w-[120px]">MRN</TableHead>
+                  <TableHead className="min-w-[150px]">Patient Name</TableHead>
+                  <TableHead className="min-w-[120px]">Age/Gender</TableHead>
+                  <TableHead className="min-w-[120px]">Contact</TableHead>
+                  <TableHead className="min-w-[120px]">Insurance</TableHead>
+                  <TableHead className="min-w-[100px]">Registered</TableHead>
+                  <TableHead className="min-w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -245,15 +245,15 @@ export function PatientManagement({ userRole, onStatsUpdate }: PatientManagement
                         <div className="text-sm">{new Date(patient.created_at).toLocaleDateString()}</div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleViewPatient(patient)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleViewPatient(patient)} className="w-full sm:w-auto">
+                            <Eye className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">View</span>
                           </Button>
                           {canEditPatients() && (
-                            <Button size="sm" variant="outline">
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
+                            <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                              <Edit className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Edit</span>
                             </Button>
                           )}
                         </div>

@@ -9,16 +9,18 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 interface Appointment {
   id: string
   patient_id: string
-  doctor_id: string
+  provider_id: string
   scheduled_time: string
-  duration: number
-  appointment_type: string
+  duration?: number
+  appointment_type?: string
   status: "scheduled" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
   notes: string
+  created_at: string
   patient?: {
     first_name: string
     last_name: string
     mrn: string
+    contact: string
   }
   doctor?: {
     full_name: string

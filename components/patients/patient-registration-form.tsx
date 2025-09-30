@@ -72,11 +72,17 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
         throw new Error("You must be logged in to register a patient")
       }
 
+      // Generate MRN (Medical Record Number)
+      const timestamp = Date.now()
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+      const mrn = `MRN${timestamp}${randomSuffix}`
+
       // Insert patient record with user_id
       const { data, error: insertError } = await supabase
         .from("patients")
         .insert({
           user_id: user.id, // Link to current user
+          mrn: mrn, // Medical Record Number
           first_name: formData.firstName,
           last_name: formData.lastName,
           dob: formData.dob,
@@ -126,7 +132,7 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
       {/* Personal Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Personal Information</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="firstName">
               First Name <span className="text-red-500">*</span>
@@ -151,7 +157,7 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="dob">
               Date of Birth <span className="text-red-500">*</span>
@@ -209,7 +215,7 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
       {/* Insurance Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Insurance Information</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="insuranceProvider">Insurance Provider</Label>
             <Input
@@ -234,7 +240,7 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
       {/* Emergency Contact */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Emergency Contact</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="emergencyContact">Emergency Contact Name</Label>
             <Input
@@ -258,11 +264,11 @@ export function PatientRegistrationForm({ onSuccess, onCancel }: PatientRegistra
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-4 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+      <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4 border-t">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
           {isLoading ? "Registering..." : "Register Patient"}
         </Button>
       </div>

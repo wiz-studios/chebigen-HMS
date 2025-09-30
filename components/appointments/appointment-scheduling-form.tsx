@@ -168,7 +168,7 @@ export function AppointmentSchedulingForm({
       const { data: conflicts, error: conflictError } = await supabase
         .from("appointments")
         .select("id")
-        .eq("doctor_id", formData.doctorId)
+        .eq("provider_id", formData.doctorId) // Use provider_id instead of doctor_id
         .gte("scheduled_time", formData.scheduledTime)
         .lt(
           "scheduled_time",
@@ -189,10 +189,8 @@ export function AppointmentSchedulingForm({
         .from("appointments")
         .insert({
           patient_id: formData.patientId,
-          doctor_id: formData.doctorId,
+          provider_id: formData.doctorId, // Use provider_id instead of doctor_id
           scheduled_time: formData.scheduledTime,
-          duration: formData.duration,
-          appointment_type: formData.appointmentType,
           status: "scheduled",
           notes: formData.notes,
         })
@@ -323,7 +321,7 @@ export function AppointmentSchedulingForm({
       )}
 
       {/* Date and Time */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="scheduledTime">
             Date & Time <span className="text-red-500">*</span>
@@ -390,11 +388,11 @@ export function AppointmentSchedulingForm({
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-4 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+      <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4 border-t">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading} className="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
           {isLoading ? "Scheduling..." : "Schedule Appointment"}
         </Button>
       </div>
