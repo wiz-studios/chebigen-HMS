@@ -6,10 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { LogoutButton } from "@/components/auth/logout-button"
 import { PatientManagement } from "@/components/patients/patient-management"
 import { AppointmentManagement } from "@/components/appointments/appointment-management"
 import { ClinicalManagement } from "@/components/clinical/clinical-management"
+import { PatientRegistrationForm } from "@/components/patients/patient-registration-form"
+import { AppointmentSchedulingForm } from "@/components/appointments/appointment-scheduling-form"
+import { EncounterManagement } from "@/components/clinical/encounter-management"
+import { PrescriptionManagement } from "@/components/clinical/prescription-management"
 import NotificationCenter from "@/components/notifications/notification-center"
 import { MobileNavigation } from "@/components/ui/mobile-navigation"
 import { MobileTabs, MobileTabContent } from "@/components/ui/mobile-tabs"
@@ -25,6 +30,18 @@ interface DashboardStats {
   activeEncounters: number
 }
 
+interface RecentActivity {
+  id: string
+  entity: string
+  action: string
+  details: any
+  reason: string
+  created_at: string
+  user?: {
+    full_name: string
+  }
+}
+
 interface StaffDashboardProps {
   user: User
 }
@@ -36,14 +53,20 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
     pendingResults: 0,
     activeEncounters: 0,
   })
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("patients")
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [showPatientModal, setShowPatientModal] = useState(false)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
+  const [showEncounterModal, setShowEncounterModal] = useState(false)
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
   const isMobile = useIsMobile()
 
   useEffect(() => {
     loadDashboardStats()
     loadUnreadNotifications()
+    loadRecentActivities()
   }, [])
 
   const loadDashboardStats = async () => {
@@ -64,7 +87,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
 
       // Get pending lab results
       const { count: pendingResults } = await supabase
-        .from("lab_results")
+        .from("lab_tests")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending")
 
@@ -107,6 +130,25 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
     }
   }
 
+  const loadRecentActivities = async () => {
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select(`
+          *,
+          user:users(full_name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+      setRecentActivities(data || [])
+    } catch (error) {
+      console.error("Error loading recent activities:", error)
+    }
+  }
+
   const getRoleDisplayName = (role: string) => {
     const roleNames = {
       doctor: "Doctor",
@@ -131,6 +173,121 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
       admin: "bg-gray-100 text-gray-800",
     }
     return colors[role as keyof typeof colors] || "bg-gray-100 text-gray-800"
+  }
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`
+    
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+  }
+
+  const getActivityIcon = (entity: string, action: string) => {
+    if (entity === "patients") {
+      return { icon: UserPlus, color: "bg-green-100 text-green-600" }
+    } else if (entity === "appointments") {
+      return { icon: Calendar, color: "bg-blue-100 text-blue-600" }
+    } else if (entity === "lab_tests" || entity === "lab_results") {
+      return { icon: FileText, color: "bg-purple-100 text-purple-600" }
+    } else if (entity === "encounters") {
+      return { icon: Activity, color: "bg-orange-100 text-orange-600" }
+    } else if (entity === "prescriptions") {
+      return { icon: BarChart3, color: "bg-pink-100 text-pink-600" }
+    }
+    return { icon: Activity, color: "bg-gray-100 text-gray-600" }
+  }
+
+  const getActivityDescription = (activity: RecentActivity) => {
+    const { entity, action, details } = activity
+    const userName = activity.user?.full_name || "Unknown user"
+    
+    switch (entity) {
+      case "patients":
+        if (action === "INSERT") return `New patient registered by ${userName}`
+        if (action === "UPDATE") return `Patient updated by ${userName}`
+        return `Patient ${action.toLowerCase()} by ${userName}`
+      
+      case "appointments":
+        if (action === "INSERT") return `Appointment scheduled by ${userName}`
+        if (action === "UPDATE") return `Appointment updated by ${userName}`
+        return `Appointment ${action.toLowerCase()} by ${userName}`
+      
+      case "lab_tests":
+        if (action === "INSERT") return `Lab test ordered by ${userName}`
+        if (action === "UPDATE") return `Lab test updated by ${userName}`
+        return `Lab test ${action.toLowerCase()} by ${userName}`
+      
+      case "encounters":
+        if (action === "INSERT") return `Encounter created by ${userName}`
+        if (action === "UPDATE") return `Encounter updated by ${userName}`
+        return `Encounter ${action.toLowerCase()} by ${userName}`
+      
+      case "prescriptions":
+        if (action === "INSERT") return `Prescription created by ${userName}`
+        if (action === "UPDATE") return `Prescription updated by ${userName}`
+        return `Prescription ${action.toLowerCase()} by ${userName}`
+      
+      default:
+        return `${entity} ${action.toLowerCase()} by ${userName}`
+    }
+  }
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case "new-patient":
+        setShowPatientModal(true)
+        break
+      case "schedule-appointment":
+        setShowAppointmentModal(true)
+        break
+      case "create-encounter":
+        setShowEncounterModal(true)
+        break
+      case "create-prescription":
+        setShowPrescriptionModal(true)
+        break
+      case "view-patients":
+        setActiveTab("patients")
+        break
+      case "view-appointments":
+        setActiveTab("appointments")
+        break
+      case "view-clinical":
+        setActiveTab("clinical")
+        break
+      case "notifications":
+        window.location.href = "/notifications"
+        break
+      case "analytics":
+        window.location.href = "/analytics"
+        break
+      case "inventory":
+        window.location.href = "/inventory"
+        break
+      case "reports":
+        window.location.href = "/reports"
+        break
+      default:
+        console.log("Unknown action:", action)
+    }
+  }
+
+  const handleModalClose = () => {
+    setShowPatientModal(false)
+    setShowAppointmentModal(false)
+    setShowEncounterModal(false)
+    setShowPrescriptionModal(false)
+    // Refresh data when modals close
+    loadDashboardStats()
+    loadRecentActivities()
   }
 
   const tabsConfig = [
@@ -294,24 +451,26 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-1.5 bg-green-100 rounded-full">
-                          <UserPlus className="h-3 w-3 text-green-600" />
+                      {recentActivities.length > 0 ? (
+                        recentActivities.slice(0, 5).map((activity) => {
+                          const { icon: Icon, color } = getActivityIcon(activity.entity, activity.action)
+                          return (
+                            <div key={activity.id} className="flex items-center space-x-3">
+                              <div className={`p-1.5 rounded-full ${color}`}>
+                                <Icon className="h-3 w-3" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{getActivityDescription(activity)}</p>
+                                <p className="text-xs text-gray-500">{formatTimeAgo(activity.created_at)}</p>
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-gray-500">No recent activity</p>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">New patient registered</p>
-                          <p className="text-xs text-gray-500">5 minutes ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="p-1.5 bg-blue-100 rounded-full">
-                          <Calendar className="h-3 w-3 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Appointment scheduled</p>
-                          <p className="text-xs text-gray-500">10 minutes ago</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -323,20 +482,54 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                   <CardContent>
                     <div className="grid grid-cols-2 gap-2">
                       {(user.role === "receptionist" || user.role === "nurse") && (
-                        <Button size="sm" variant="outline" className="h-auto py-3 flex-col bg-transparent">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-auto py-3 flex-col bg-transparent"
+                          onClick={() => handleQuickAction("new-patient")}
+                        >
                           <UserPlus className="h-4 w-4 mb-1" />
                           <span className="text-xs">New Patient</span>
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" className="h-auto py-3 flex-col bg-transparent">
-                        <Calendar className="h-4 w-4 mb-1" />
-                        <span className="text-xs">Schedule</span>
-                      </Button>
+                      {(user.role === "receptionist" || user.role === "doctor" || user.role === "nurse" || user.role === "superadmin") && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-auto py-3 flex-col bg-transparent"
+                          onClick={() => handleQuickAction("schedule-appointment")}
+                        >
+                          <Calendar className="h-4 w-4 mb-1" />
+                          <span className="text-xs">Schedule</span>
+                        </Button>
+                      )}
+                      {(user.role === "doctor" || user.role === "nurse") && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-auto py-3 flex-col bg-transparent"
+                          onClick={() => handleQuickAction("create-encounter")}
+                        >
+                          <Activity className="h-4 w-4 mb-1" />
+                          <span className="text-xs">Encounter</span>
+                        </Button>
+                      )}
+                      {user.role === "doctor" && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-auto py-3 flex-col bg-transparent"
+                          onClick={() => handleQuickAction("create-prescription")}
+                        >
+                          <BarChart3 className="h-4 w-4 mb-1" />
+                          <span className="text-xs">Prescription</span>
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-auto py-3 flex-col bg-transparent"
-                        onClick={() => (window.location.href = "/notifications")}
+                        onClick={() => handleQuickAction("notifications")}
                       >
                         <Bell className="h-4 w-4 mb-1" />
                         <span className="text-xs">Notifications</span>
@@ -346,7 +539,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                           size="sm"
                           variant="outline"
                           className="h-auto py-3 flex-col bg-transparent"
-                          onClick={() => (window.location.href = "/analytics")}
+                          onClick={() => handleQuickAction("analytics")}
                         >
                           <BarChart3 className="h-4 w-4 mb-1" />
                           <span className="text-xs">Analytics</span>
@@ -359,7 +552,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
             </MobileTabContent>
           </MobileTabs>
         ) : (
-          <Tabs defaultValue="patients" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="patients" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -396,37 +589,31 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                 <Card>
                   <CardHeader>
                     <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest patient activities</CardDescription>
+                    <CardDescription>Latest system activities</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-green-100 rounded-full">
-                          <UserPlus className="h-4 w-4 text-green-600" />
+                      {recentActivities.length > 0 ? (
+                        recentActivities.slice(0, 6).map((activity) => {
+                          const { icon: Icon, color } = getActivityIcon(activity.entity, activity.action)
+                          return (
+                            <div key={activity.id} className="flex items-center space-x-4">
+                              <div className={`p-2 rounded-full ${color}`}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{getActivityDescription(activity)}</p>
+                                <p className="text-xs text-gray-500">{formatTimeAgo(activity.created_at)}</p>
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="text-center py-8">
+                          <Activity className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No recent activity</p>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">New patient registered</p>
-                          <p className="text-xs text-gray-500">5 minutes ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-blue-100 rounded-full">
-                          <Calendar className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Appointment scheduled</p>
-                          <p className="text-xs text-gray-500">10 minutes ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-purple-100 rounded-full">
-                          <FileText className="h-4 w-4 text-purple-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Lab result uploaded</p>
-                          <p className="text-xs text-gray-500">15 minutes ago</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -439,32 +626,74 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                   <CardContent>
                     <div className="space-y-3">
                       {(user.role === "receptionist" || user.role === "nurse") && (
-                        <Button className="w-full justify-start bg-transparent" variant="outline">
+                        <Button 
+                          className="w-full justify-start bg-transparent" 
+                          variant="outline"
+                          onClick={() => handleQuickAction("new-patient")}
+                        >
                           <UserPlus className="h-4 w-4 mr-2" />
                           Register New Patient
                         </Button>
                       )}
-                      {(user.role === "doctor" || user.role === "nurse") && (
-                        <Button className="w-full justify-start bg-transparent" variant="outline">
-                          <FileText className="h-4 w-4 mr-2" />
-                          Create Encounter
-                        </Button>
-                      )}
-                      <Button className="w-full justify-start bg-transparent" variant="outline">
+                      <Button 
+                        className="w-full justify-start bg-transparent" 
+                        variant="outline"
+                        onClick={() => handleQuickAction("schedule-appointment")}
+                      >
                         <Calendar className="h-4 w-4 mr-2" />
                         Schedule Appointment
                       </Button>
-                      <Button className="w-full justify-start bg-transparent" variant="outline">
-                        <Activity className="h-4 w-4 mr-2" />
+                      <Button 
+                        className="w-full justify-start bg-transparent" 
+                        variant="outline"
+                        onClick={() => handleQuickAction("view-patients")}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
                         View Patient Records
                       </Button>
+                      <Button 
+                        className="w-full justify-start bg-transparent" 
+                        variant="outline"
+                        onClick={() => handleQuickAction("view-appointments")}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        View Appointments
+                      </Button>
+                      <Button 
+                        className="w-full justify-start bg-transparent" 
+                        variant="outline"
+                        onClick={() => handleQuickAction("view-clinical")}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Clinical Management
+                      </Button>
+                      {(user.role === "doctor" || user.role === "nurse") && (
+                        <Button 
+                          className="w-full justify-start bg-transparent" 
+                          variant="outline"
+                          onClick={() => handleQuickAction("create-encounter")}
+                        >
+                          <Activity className="h-4 w-4 mr-2" />
+                          Create Encounter
+                        </Button>
+                      )}
+                      {user.role === "doctor" && (
+                        <Button 
+                          className="w-full justify-start bg-transparent" 
+                          variant="outline"
+                          onClick={() => handleQuickAction("create-prescription")}
+                        >
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Create Prescription
+                        </Button>
+                      )}
                       {(user.role === "superadmin" || user.role === "doctor" || user.role === "accountant") && (
                         <Button
                           className="w-full justify-start bg-transparent"
                           variant="outline"
-                          onClick={() => (window.location.href = "/analytics")}
+                          onClick={() => handleQuickAction("analytics")}
                         >
-                          <Activity className="h-4 w-4 mr-2" />
+                          <BarChart3 className="h-4 w-4 mr-2" />
                           View Analytics
                         </Button>
                       )}
@@ -472,7 +701,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                         <Button
                           className="w-full justify-start bg-transparent"
                           variant="outline"
-                          onClick={() => (window.location.href = "/inventory")}
+                          onClick={() => handleQuickAction("inventory")}
                         >
                           <Activity className="h-4 w-4 mr-2" />
                           Manage Inventory
@@ -480,12 +709,11 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                       )}
                       {(user.role === "superadmin" ||
                         user.role === "doctor" ||
-                        user.role === "accountant" ||
-                        user.role === "admin") && (
+                        user.role === "accountant") && (
                         <Button
                           className="w-full justify-start bg-transparent"
                           variant="outline"
-                          onClick={() => (window.location.href = "/reports")}
+                          onClick={() => handleQuickAction("reports")}
                         >
                           <BarChart3 className="h-4 w-4 mr-2" />
                           Generate Reports
@@ -494,7 +722,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                       <Button
                         className="w-full justify-start bg-transparent"
                         variant="outline"
-                        onClick={() => (window.location.href = "/notifications")}
+                        onClick={() => handleQuickAction("notifications")}
                       >
                         <Bell className="h-4 w-4 mr-2" />
                         Notification Settings
@@ -507,6 +735,90 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
           </Tabs>
         )}
       </div>
+
+      {/* Modal Dialogs */}
+      <Dialog open={showPatientModal} onOpenChange={setShowPatientModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Register New Patient</DialogTitle>
+            <DialogDescription>
+              Add a new patient to the system
+            </DialogDescription>
+          </DialogHeader>
+          <PatientRegistrationForm 
+            onSuccess={() => {
+              handleModalClose()
+            }}
+            onCancel={() => {
+              setShowPatientModal(false)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAppointmentModal} onOpenChange={setShowAppointmentModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Schedule Appointment</DialogTitle>
+            <DialogDescription>
+              Schedule a new appointment for a patient
+            </DialogDescription>
+          </DialogHeader>
+          <AppointmentSchedulingForm 
+            onSuccess={() => {
+              handleModalClose()
+            }}
+            onCancel={() => {
+              setShowAppointmentModal(false)
+            }}
+            userRole={user.role}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEncounterModal} onOpenChange={setShowEncounterModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Encounter</DialogTitle>
+            <DialogDescription>
+              Create a new patient encounter
+            </DialogDescription>
+          </DialogHeader>
+          <EncounterManagement 
+            userRole={user.role} 
+            userId={user.id}
+            onStatsUpdate={loadDashboardStats}
+            onSuccess={() => {
+              handleModalClose()
+            }}
+            onError={(error: any) => {
+              console.error("Error in encounter management:", error)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPrescriptionModal} onOpenChange={setShowPrescriptionModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Prescription</DialogTitle>
+            <DialogDescription>
+              Create a new prescription for a patient
+            </DialogDescription>
+          </DialogHeader>
+          <PrescriptionManagement 
+            userRole={user.role} 
+            userId={user.id}
+            onStatsUpdate={loadDashboardStats}
+            onSuccess={() => {
+              handleModalClose()
+            }}
+            onError={(error: any) => {
+              console.error("Error in prescription management:", error)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

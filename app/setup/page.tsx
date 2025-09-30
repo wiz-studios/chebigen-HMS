@@ -260,7 +260,7 @@ export default function SetupPage() {
                 </div>
               </div>
               <CardTitle className="text-3xl">Setup Complete!</CardTitle>
-              <CardDescription className="text-lg">Your Hospital Management System is ready to use</CardDescription>
+              <CardDescription className="text-lg">Your Chebigen HMS is ready to use</CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-6">
               <div className="bg-green-50 p-4 rounded-lg">
@@ -302,7 +302,7 @@ export default function SetupPage() {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900">System Setup</h1>
-            <p className="text-gray-600 mt-2">Configure your Hospital Management System</p>
+            <p className="text-gray-600 mt-2">Configure your Chebigen HMS</p>
           </div>
 
           {/* Progress */}

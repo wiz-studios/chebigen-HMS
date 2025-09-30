@@ -19,20 +19,18 @@ import { Plus, Search, Eye, Pill, CheckCircle, XCircle } from "lucide-react"
 interface Prescription {
   id: string
   patient_id: string
-  prescribed_by: string
+  provider_id?: string
+  prescribed_by?: string
+  encounter_id?: string
   medication_name: string
-  dosage: string
+  dose: string
   frequency: string
-  duration: string
-  quantity: number
-  refills: number
+  duration?: string
+  instructions?: string
   status: "active" | "completed" | "cancelled" | "expired"
-  prescribed_date: string
-  start_date: string
-  end_date?: string
-  instructions: string
-  notes?: string
   created_at: string
+  updated_at: string
+  deleted_at?: string
   patient?: {
     first_name: string
     last_name: string
@@ -110,10 +108,7 @@ export function PrescriptionManagement({
     dosage: "",
     frequency: "twice_daily",
     duration: "",
-    quantity: "",
-    refills: "0",
     instructions: "",
-    notes: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -142,7 +137,7 @@ export function PrescriptionManagement({
         query = query.eq("prescribed_by", userId)
       }
 
-      const { data, error } = await query.order("prescribed_date", { ascending: false })
+      const { data, error } = await query.order("created_at", { ascending: false })
 
       if (error) throw error
 
@@ -192,7 +187,15 @@ export function PrescriptionManagement({
     e.preventDefault()
     setIsSubmitting(true)
 
+    console.log("Form validation - checking required fields:", {
+      patientId: formData.patientId,
+      medicationName: formData.medicationName,
+      dosage: formData.dosage,
+      duration: formData.duration
+    })
+
     if (!formData.patientId || !formData.medicationName || !formData.dosage || !formData.duration) {
+      console.log("Validation failed - missing required fields")
       onError("Please fill in all required fields")
       setIsSubmitting(false)
       return
@@ -201,6 +204,35 @@ export function PrescriptionManagement({
     const supabase = createClient()
 
     try {
+      // First, test if we can access the prescriptions table
+      console.log("Testing prescriptions table access...")
+      const { data: testData, error: testError } = await supabase
+        .from("prescriptions")
+        .select("id")
+        .limit(1)
+      
+      if (testError) {
+        console.error("Cannot access prescriptions table:", testError)
+        throw new Error(`Cannot access prescriptions table: ${testError.message}`)
+      }
+      
+      console.log("Prescriptions table access test successful")
+      
+      // Test if the patient exists
+      console.log("Testing patient access...")
+      const { data: patientData, error: patientError } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("id", formData.patientId)
+        .single()
+      
+      if (patientError) {
+        console.error("Cannot access patient:", patientError)
+        throw new Error(`Cannot access patient: ${patientError.message}`)
+      }
+      
+      console.log("Patient access test successful:", patientData)
+      
       const startDate = new Date()
       const endDate = new Date()
 
@@ -222,28 +254,37 @@ export function PrescriptionManagement({
         endDate.setDate(startDate.getDate() + 30)
       }
 
+      const insertData = {
+        patient_id: formData.patientId,
+        prescribed_by: userId,
+        medication_name: formData.medicationName,
+        dose: formData.dosage,
+        frequency: formData.frequency,
+        duration: formData.duration,
+        instructions: formData.instructions,
+        status: "active",
+      }
+      
+      console.log("Submitting prescription with data:", insertData)
+      console.log("User ID:", userId)
+      console.log("User role:", userRole)
+
+      // Use existing database schema fields
       const { data, error } = await supabase
         .from("prescriptions")
-        .insert({
-          patient_id: formData.patientId,
-          prescribed_by: userId,
-          medication_name: formData.medicationName,
-          dosage: formData.dosage,
-          frequency: formData.frequency,
-          duration: formData.duration,
-          quantity: Number.parseInt(formData.quantity),
-          refills: Number.parseInt(formData.refills),
-          status: "active",
-          prescribed_date: new Date().toISOString(),
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString(),
-          instructions: formData.instructions,
-          notes: formData.notes || null,
-        })
+        .insert(insertData)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error("Database error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        throw error
+      }
 
       // Log the prescription
       await supabase.from("audit_logs").insert({
@@ -268,16 +309,32 @@ export function PrescriptionManagement({
         dosage: "",
         frequency: "twice_daily",
         duration: "",
-        quantity: "",
-        refills: "0",
         instructions: "",
-        notes: "",
       })
       await loadPrescriptions()
       onStatsUpdate()
-    } catch (error) {
-      onError("Failed to create prescription")
+    } catch (error: any) {
       console.error("Error creating prescription:", error)
+      
+      // Extract more detailed error information
+      let errorMessage = "Unknown error"
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      }
+      
+      console.error("Detailed error info:", {
+        error,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code
+      })
+      
+      onError(`Failed to create prescription: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -429,7 +486,7 @@ export function PrescriptionManagement({
                     <div className="font-medium">{prescription.medication_name}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{prescription.dosage}</div>
+                    <div className="font-medium">{prescription.dose}</div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">{getFrequencyLabel(prescription.frequency)}</div>
@@ -442,7 +499,7 @@ export function PrescriptionManagement({
                     <div>
                       <div className="text-sm font-medium">{prescription.prescribed_by_user?.full_name}</div>
                       <div className="text-xs text-gray-500">
-                        {new Date(prescription.prescribed_date).toLocaleDateString()}
+                        {new Date(prescription.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </TableCell>
@@ -455,7 +512,7 @@ export function PrescriptionManagement({
                       {canDispense() && prescription.status === "active" && (
                         <Button size="sm" onClick={() => handleStatusUpdate(prescription.id, "completed")}>
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Dispense
+                          Complete
                         </Button>
                       )}
                       {prescription.status === "active" && (
@@ -573,32 +630,6 @@ export function PrescriptionManagement({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  placeholder="Number of units"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="refills">Refills</Label>
-              <Select value={formData.refills} onValueChange={(value) => setFormData({ ...formData, refills: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 4, 5].map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
-                      {num} refills
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -614,15 +645,7 @@ export function PrescriptionManagement({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional notes or warnings..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              />
-            </div>
+            {/* Notes field removed since database doesn't have this field */}
 
             <div className="flex justify-end gap-4 pt-4 border-t">
               <Button
@@ -661,7 +684,7 @@ export function PrescriptionManagement({
                   <Label className="text-sm font-medium text-gray-500">Prescribed By</Label>
                   <p className="font-medium">{selectedPrescription.prescribed_by_user?.full_name}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(selectedPrescription.prescribed_date).toLocaleDateString()}
+                    {new Date(selectedPrescription.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -678,7 +701,7 @@ export function PrescriptionManagement({
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-gray-500">Dosage</Label>
-                      <p className="text-lg font-semibold">{selectedPrescription.dosage}</p>
+                      <p className="text-lg font-semibold">{selectedPrescription.dose}</p>
                     </div>
                   </div>
 
@@ -693,15 +716,7 @@ export function PrescriptionManagement({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500">Quantity</Label>
-                      <p className="font-medium">{selectedPrescription.quantity}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500">Refills</Label>
-                      <p className="font-medium">{selectedPrescription.refills}</p>
-                    </div>
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <Label className="text-sm font-medium text-gray-500">Status</Label>
                       <div>{getStatusBadge(selectedPrescription.status)}</div>
@@ -715,12 +730,7 @@ export function PrescriptionManagement({
                 <p className="mt-1 text-sm">{selectedPrescription.instructions}</p>
               </div>
 
-              {selectedPrescription.notes && (
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Additional Notes</Label>
-                  <p className="mt-1 text-sm">{selectedPrescription.notes}</p>
-                </div>
-              )}
+              {/* Notes section removed since database doesn't have this field */}
 
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button variant="outline" onClick={() => setSelectedPrescription(null)}>
@@ -729,7 +739,7 @@ export function PrescriptionManagement({
                 {canDispense() && selectedPrescription.status === "active" && (
                   <Button onClick={() => handleStatusUpdate(selectedPrescription.id, "completed")}>
                     <Pill className="h-4 w-4 mr-2" />
-                    Mark as Dispensed
+                    Mark as Completed
                   </Button>
                 )}
               </div>

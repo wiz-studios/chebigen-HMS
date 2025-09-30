@@ -18,15 +18,15 @@ import { Plus, Search, Eye, Clock } from "lucide-react"
 interface Encounter {
   id: string
   patient_id: string
-  doctor_id: string
+  provider_id: string
+  appointment_id?: string
   encounter_date: string
-  encounter_type: string
-  chief_complaint: string
+  notes: any // JSONB field for SOAP format
   diagnosis: string
-  treatment_plan: string
-  notes: string
-  status: "active" | "completed"
+  plan: string
   created_at: string
+  updated_at: string
+  deleted_at?: string
   patient?: {
     first_name: string
     last_name: string
@@ -66,7 +66,7 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
   const [patients, setPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  // Status filter removed since encounters table doesn't have a status field
   const [selectedEncounter, setSelectedEncounter] = useState<Encounter | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [formData, setFormData] = useState({
@@ -80,13 +80,14 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
+    console.log("Loading encounters for user:", userId, "role:", userRole)
     loadEncounters()
     loadPatients()
   }, [userId])
 
   useEffect(() => {
     filterEncounters()
-  }, [encounters, searchTerm, statusFilter])
+  }, [encounters, searchTerm])
 
   const loadEncounters = async () => {
     const supabase = createClient()
@@ -96,18 +97,22 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
       let query = supabase.from("encounters").select(`
           *,
           patient:patients(first_name, last_name, mrn),
-          doctor:users!encounters_doctor_id_fkey(full_name)
+          doctor:users!encounters_provider_id_fkey(full_name)
         `)
 
       // Filter by user role
       if (userRole === "doctor") {
-        query = query.eq("doctor_id", userId)
+        query = query.eq("provider_id", userId)
       }
 
       const { data, error } = await query.order("encounter_date", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("Error loading encounters:", error)
+        throw error
+      }
 
+      console.log("Loaded encounters:", data?.length || 0, "encounters")
       setEncounters(data || [])
     } catch (error) {
       onError("Failed to load encounters")
@@ -139,14 +144,15 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
           encounter.patient?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           encounter.patient?.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           encounter.patient?.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          encounter.chief_complaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          encounter.notes?.chief_complaint?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           encounter.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((encounter) => encounter.status === statusFilter)
-    }
+    // Note: The database schema doesn't have a status field, so we'll skip status filtering for now
+    // if (statusFilter !== "all") {
+    //   filtered = filtered.filter((encounter) => encounter.status === statusFilter)
+    // }
 
     setFilteredEncounters(filtered)
   }
@@ -168,14 +174,15 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
         .from("encounters")
         .insert({
           patient_id: formData.patientId,
-          doctor_id: userId,
+          provider_id: userId,
           encounter_date: new Date().toISOString(),
-          encounter_type: formData.encounterType,
-          chief_complaint: formData.chiefComplaint,
           diagnosis: formData.diagnosis,
-          treatment_plan: formData.treatmentPlan,
-          notes: formData.notes,
-          status: "active",
+          plan: formData.treatmentPlan,
+          notes: {
+            chief_complaint: formData.chiefComplaint,
+            encounter_type: formData.encounterType,
+            additional_notes: formData.notes
+          },
         })
         .select()
         .single()
@@ -216,53 +223,18 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
     }
   }
 
+  // Note: Status updates removed since encounters table doesn't have a status field
+  // This function is kept for potential future use
   const handleStatusUpdate = async (encounterId: string, newStatus: "active" | "completed") => {
-    const supabase = createClient()
-
-    try {
-      const { error } = await supabase.from("encounters").update({ status: newStatus }).eq("id", encounterId)
-
-      if (error) throw error
-
-      // Log the status change
-      await supabase.from("audit_logs").insert({
-        entity: "encounters",
-        entity_id: encounterId,
-        action: "STATUS_UPDATED",
-        details: {
-          new_status: newStatus,
-          updated_by: userId,
-        },
-        reason: `Encounter status changed to ${newStatus}`,
-        severity: "low",
-      })
-
-      onSuccess(`Encounter ${newStatus} successfully`)
-      await loadEncounters()
-      onStatsUpdate()
-    } catch (error) {
-      onError("Failed to update encounter status")
-      console.error("Error updating encounter:", error)
-    }
+    // For now, just show a message that status updates are not available
+    onSuccess("Status updates are not available for encounters")
   }
 
   const canCreateEncounters = () => {
     return ["superadmin", "doctor", "nurse"].includes(userRole)
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { color: "bg-green-100 text-green-800", label: "Active" },
-      completed: { color: "bg-blue-100 text-blue-800", label: "Completed" },
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      color: "bg-gray-100 text-gray-800",
-      label: status,
-    }
-
-    return <Badge className={config.color}>{config.label}</Badge>
-  }
+  // Status badge function removed since encounters table doesn't have a status field
 
   const getEncounterTypeBadge = (type: string) => {
     const typeColors = {
@@ -308,16 +280,7 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
             />
           </div>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Status filter removed since encounters table doesn't have a status field */}
       </div>
 
       {/* Encounters Table */}
@@ -330,22 +293,21 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Chief Complaint</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   Loading encounters...
                 </TableCell>
               </TableRow>
             ) : filteredEncounters.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  {searchTerm || statusFilter !== "all"
-                    ? "No encounters found matching your filters"
+                <TableCell colSpan={6} className="text-center py-8">
+                  {searchTerm
+                    ? "No encounters found matching your search"
                     : "No encounters recorded"}
                 </TableCell>
               </TableRow>
@@ -374,25 +336,18 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{getEncounterTypeBadge(encounter.encounter_type)}</TableCell>
+                  <TableCell>{getEncounterTypeBadge(encounter.notes?.encounter_type || "consultation")}</TableCell>
                   <TableCell>
-                    <div className="max-w-xs truncate" title={encounter.chief_complaint}>
-                      {encounter.chief_complaint}
+                    <div className="max-w-xs truncate" title={encounter.notes?.chief_complaint || "No chief complaint recorded"}>
+                      {encounter.notes?.chief_complaint || "No chief complaint recorded"}
                     </div>
                   </TableCell>
-                  <TableCell>{getStatusBadge(encounter.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => setSelectedEncounter(encounter)}>
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      {encounter.status === "active" && (
-                        <Button size="sm" onClick={() => handleStatusUpdate(encounter.id, "completed")}>
-                          <Clock className="h-4 w-4 mr-1" />
-                          Complete
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -534,18 +489,13 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Type</Label>
-                  <div>{getEncounterTypeBadge(selectedEncounter.encounter_type)}</div>
+                  <div>{getEncounterTypeBadge(selectedEncounter.notes?.encounter_type || "consultation")}</div>
                 </div>
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-500">Status</Label>
-                <div className="mt-1">{getStatusBadge(selectedEncounter.status)}</div>
-              </div>
-
-              <div>
                 <Label className="text-sm font-medium text-gray-500">Chief Complaint</Label>
-                <p className="mt-1 text-sm">{selectedEncounter.chief_complaint}</p>
+                <p className="mt-1 text-sm">{selectedEncounter.notes?.chief_complaint || "No chief complaint recorded"}</p>
               </div>
 
               {selectedEncounter.diagnosis && (
@@ -555,17 +505,17 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
                 </div>
               )}
 
-              {selectedEncounter.treatment_plan && (
+              {selectedEncounter.plan && (
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Treatment Plan</Label>
-                  <p className="mt-1 text-sm">{selectedEncounter.treatment_plan}</p>
+                  <p className="mt-1 text-sm">{selectedEncounter.plan}</p>
                 </div>
               )}
 
-              {selectedEncounter.notes && (
+              {selectedEncounter.notes?.additional_notes && (
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Additional Notes</Label>
-                  <p className="mt-1 text-sm">{selectedEncounter.notes}</p>
+                  <p className="mt-1 text-sm">{selectedEncounter.notes.additional_notes}</p>
                 </div>
               )}
 
@@ -573,12 +523,6 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
                 <Button variant="outline" onClick={() => setSelectedEncounter(null)}>
                   Close
                 </Button>
-                {selectedEncounter.status === "active" && (
-                  <Button onClick={() => handleStatusUpdate(selectedEncounter.id, "completed")}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Mark Complete
-                  </Button>
-                )}
               </div>
             </div>
           </DialogContent>

@@ -44,7 +44,7 @@ export function MobileDataTable({
   emptyMessage = "No data available",
 }: MobileDataTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortColumn, setSortColumn] = useState<string | null>("") // Updated default value to be a non-empty string
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [showFilters, setShowFilters] = useState(false)
   const isMobile = useIsMobile()
@@ -244,12 +244,12 @@ export function MobileDataTable({
 
         {/* Mobile sort */}
         <div className="flex gap-2">
-          <Select value={sortColumn || ""} onValueChange={(value) => setSortColumn(value || null)}>
+          <Select value={sortColumn || "none"} onValueChange={(value) => setSortColumn(value === "none" ? null : value)}>
             <SelectTrigger className="flex-1">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No sorting</SelectItem>
+              <SelectItem value="none">No sorting</SelectItem>
               {columns
                 .filter((col) => col.sortable)
                 .map((column) => (

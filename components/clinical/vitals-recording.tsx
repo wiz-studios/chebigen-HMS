@@ -17,19 +17,19 @@ import { Plus, Search, Activity, TrendingUp, TrendingDown } from "lucide-react"
 interface Vitals {
   id: string
   patient_id: string
-  encounter_id?: string
   recorded_by: string
-  recorded_at: string
-  systolic_bp?: number
-  diastolic_bp?: number
+  encounter_id?: string
+  timestamp: string
+  blood_pressure?: string
   heart_rate?: number
-  temperature?: number
   respiratory_rate?: number
-  oxygen_saturation?: number
+  temperature?: number
+  spo2?: number
   weight?: number
   height?: number
-  bmi?: number
-  notes?: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string
   patient?: {
     first_name: string
     last_name: string
@@ -73,7 +73,6 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
     oxygenSaturation: "",
     weight: "",
     height: "",
-    notes: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -98,7 +97,7 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
           patient:patients(first_name, last_name, mrn),
           recorded_by_user:users!vitals_recorded_by_fkey(full_name)
         `)
-        .order("recorded_at", { ascending: false })
+        .order("timestamp", { ascending: false })
 
       if (error) throw error
 
@@ -162,22 +161,23 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
       const height = formData.height ? Number.parseFloat(formData.height) : null
       const bmi = weight && height ? calculateBMI(weight, height) : null
 
+      const bloodPressure = formData.systolicBp && formData.diastolicBp 
+        ? `${formData.systolicBp}/${formData.diastolicBp}` 
+        : null
+
       const { data, error } = await supabase
         .from("vitals")
         .insert({
           patient_id: formData.patientId,
           recorded_by: userId,
-          recorded_at: new Date().toISOString(),
-          systolic_bp: formData.systolicBp ? Number.parseInt(formData.systolicBp) : null,
-          diastolic_bp: formData.diastolicBp ? Number.parseInt(formData.diastolicBp) : null,
+          timestamp: new Date().toISOString(),
+          blood_pressure: bloodPressure,
           heart_rate: formData.heartRate ? Number.parseInt(formData.heartRate) : null,
           temperature: formData.temperature ? Number.parseFloat(formData.temperature) : null,
           respiratory_rate: formData.respiratoryRate ? Number.parseInt(formData.respiratoryRate) : null,
-          oxygen_saturation: formData.oxygenSaturation ? Number.parseInt(formData.oxygenSaturation) : null,
+          spo2: formData.oxygenSaturation ? Number.parseFloat(formData.oxygenSaturation) : null,
           weight: weight,
           height: height,
-          bmi: bmi,
-          notes: formData.notes || null,
         })
         .select()
         .single()
@@ -210,7 +210,6 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
         oxygenSaturation: "",
         weight: "",
         height: "",
-        notes: "",
       })
       await loadVitals()
       onStatsUpdate()
@@ -321,9 +320,9 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{new Date(vital.recorded_at).toLocaleDateString()}</div>
+                      <div className="font-medium">{new Date(vital.timestamp).toLocaleDateString()}</div>
                       <div className="text-sm text-gray-500">
-                        {new Date(vital.recorded_at).toLocaleTimeString([], {
+                        {new Date(vital.timestamp).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -331,12 +330,10 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                     </div>
                   </TableCell>
                   <TableCell>
-                    {vital.systolic_bp && vital.diastolic_bp ? (
+                    {vital.blood_pressure ? (
                       <div className="flex items-center gap-1">
-                        <span>
-                          {vital.systolic_bp}/{vital.diastolic_bp}
-                        </span>
-                        {getStatusIcon(getVitalStatus(vital.systolic_bp, normalRanges.systolic))}
+                        <span>{vital.blood_pressure}</span>
+                        {/* Note: We can't easily parse BP from string format for status checking */}
                       </div>
                     ) : (
                       "-"
@@ -373,17 +370,19 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                     )}
                   </TableCell>
                   <TableCell>
-                    {vital.oxygen_saturation ? (
+                    {vital.spo2 ? (
                       <div className="flex items-center gap-1">
-                        <span>{vital.oxygen_saturation}%</span>
-                        {getStatusIcon(getVitalStatus(vital.oxygen_saturation, normalRanges.oxygenSaturation))}
+                        <span>{vital.spo2}%</span>
+                        {getStatusIcon(getVitalStatus(vital.spo2, normalRanges.oxygenSaturation))}
                       </div>
                     ) : (
                       "-"
                     )}
                   </TableCell>
                   <TableCell>{vital.weight ? `${vital.weight} kg` : "-"}</TableCell>
-                  <TableCell>{vital.bmi ? vital.bmi : "-"}</TableCell>
+                  <TableCell>
+                    {vital.weight && vital.height ? calculateBMI(vital.weight, vital.height) : "-"}
+                  </TableCell>
                   <TableCell>
                     <div className="text-sm">{vital.recorded_by_user?.full_name}</div>
                   </TableCell>
@@ -532,15 +531,7 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                placeholder="Additional notes or observations..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              />
-            </div>
+            {/* Notes field removed since database doesn't have this field */}
 
             <div className="flex justify-end gap-4 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => setShowRecordForm(false)} disabled={isSubmitting}>
@@ -573,7 +564,7 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Recorded By</Label>
                   <p className="font-medium">{selectedVitals.recorded_by_user?.full_name}</p>
-                  <p className="text-sm text-gray-500">{new Date(selectedVitals.recorded_at).toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">{new Date(selectedVitals.timestamp).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -583,13 +574,10 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                     <CardTitle className="text-sm">Blood Pressure</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {selectedVitals.systolic_bp && selectedVitals.diastolic_bp ? (
+                    {selectedVitals.blood_pressure ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold">
-                          {selectedVitals.systolic_bp}/{selectedVitals.diastolic_bp}
-                        </span>
+                        <span className="text-lg font-semibold">{selectedVitals.blood_pressure}</span>
                         <span className="text-sm text-gray-500">mmHg</span>
-                        {getStatusIcon(getVitalStatus(selectedVitals.systolic_bp, normalRanges.systolic))}
                       </div>
                     ) : (
                       <span className="text-gray-400">Not recorded</span>
@@ -638,11 +626,11 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                     <CardTitle className="text-sm">Oxygen Saturation</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {selectedVitals.oxygen_saturation ? (
+                    {selectedVitals.spo2 ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold">{selectedVitals.oxygen_saturation}</span>
+                        <span className="text-lg font-semibold">{selectedVitals.spo2}</span>
                         <span className="text-sm text-gray-500">%</span>
-                        {getStatusIcon(getVitalStatus(selectedVitals.oxygen_saturation, normalRanges.oxygenSaturation))}
+                        {getStatusIcon(getVitalStatus(selectedVitals.spo2, normalRanges.oxygenSaturation))}
                       </div>
                     ) : (
                       <span className="text-gray-400">Not recorded</span>
@@ -689,8 +677,8 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                     <CardTitle className="text-sm">BMI</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {selectedVitals.bmi ? (
-                      <span className="text-lg font-semibold">{selectedVitals.bmi}</span>
+                    {selectedVitals.weight && selectedVitals.height ? (
+                      <span className="text-lg font-semibold">{calculateBMI(selectedVitals.weight, selectedVitals.height)}</span>
                     ) : (
                       <span className="text-gray-400">Not calculated</span>
                     )}
@@ -698,12 +686,7 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
                 </Card>
               </div>
 
-              {selectedVitals.notes && (
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Notes</Label>
-                  <p className="mt-1 text-sm">{selectedVitals.notes}</p>
-                </div>
-              )}
+                {/* Notes section removed since database doesn't have this field */}
 
               <div className="flex justify-end pt-4 border-t">
                 <Button variant="outline" onClick={() => setSelectedVitals(null)}>

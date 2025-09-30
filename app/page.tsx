@@ -61,7 +61,7 @@ export default function HomePage() {
                 <Stethoscope className="h-16 w-16 text-white" />
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Hospital Management System</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Chebigen HMS</h1>
             <p className="text-xl text-gray-600 mb-8">
               Comprehensive healthcare management solution for modern hospitals
             </p>

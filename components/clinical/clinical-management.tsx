@@ -55,7 +55,7 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
 
       // Get pending lab results
       const { count: pendingLabResults } = await supabase
-        .from("lab_results")
+        .from("lab_tests")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending")
 
@@ -91,7 +91,7 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
   }
 
   const canAccessClinical = () => {
-    return ["superadmin", "doctor", "nurse"].includes(userRole)
+    return ["superadmin", "doctor", "nurse", "lab_tech"].includes(userRole)
   }
 
   const canAccessLab = () => {
@@ -129,48 +129,48 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
       )}
 
       {/* Clinical Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Encounters</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Active Encounters</CardTitle>
+            <FileText className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "..." : stats.activeEncounters}</div>
-            <p className="text-xs text-muted-foreground">Today's encounters</p>
+            <div className="text-lg md:text-2xl font-bold">{isLoading ? "..." : stats.activeEncounters}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Today's encounters</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Lab Results</CardTitle>
-            <TestTube className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Pending Lab Results</CardTitle>
+            <TestTube className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{isLoading ? "..." : stats.pendingLabResults}</div>
-            <p className="text-xs text-muted-foreground">Awaiting results</p>
+            <div className="text-lg md:text-2xl font-bold text-orange-600">{isLoading ? "..." : stats.pendingLabResults}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Awaiting results</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Prescriptions</CardTitle>
-            <Pill className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Active Prescriptions</CardTitle>
+            <Pill className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "..." : stats.activePrescriptions}</div>
-            <p className="text-xs text-muted-foreground">Current prescriptions</p>
+            <div className="text-lg md:text-2xl font-bold">{isLoading ? "..." : stats.activePrescriptions}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Current prescriptions</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vitals Recorded</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Vitals Recorded</CardTitle>
+            <Activity className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "..." : stats.vitalsRecorded}</div>
-            <p className="text-xs text-muted-foreground">Today's vitals</p>
+            <div className="text-lg md:text-2xl font-bold">{isLoading ? "..." : stats.vitalsRecorded}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Today's vitals</p>
           </CardContent>
         </Card>
       </div>
@@ -183,25 +183,29 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="encounters" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="encounters" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Encounters
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+              <TabsTrigger value="encounters" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Encounters</span>
+                <span className="sm:hidden">Enc</span>
               </TabsTrigger>
-              <TabsTrigger value="vitals" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Vitals
+              <TabsTrigger value="vitals" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Vitals</span>
+                <span className="sm:hidden">Vitals</span>
               </TabsTrigger>
               {canAccessLab() && (
-                <TabsTrigger value="lab-results" className="flex items-center gap-2">
-                  <TestTube className="h-4 w-4" />
-                  Lab Results
+                <TabsTrigger value="lab-results" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <TestTube className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Lab Results</span>
+                  <span className="sm:hidden">Lab</span>
                 </TabsTrigger>
               )}
               {canAccessPrescriptions() && (
-                <TabsTrigger value="prescriptions" className="flex items-center gap-2">
-                  <Pill className="h-4 w-4" />
-                  Prescriptions
+                <TabsTrigger value="prescriptions" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Pill className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Prescriptions</span>
+                  <span className="sm:hidden">Rx</span>
                 </TabsTrigger>
               )}
             </TabsList>

@@ -73,7 +73,7 @@ export default function LoginPage() {
                 <Stethoscope className="h-8 w-8 text-white" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Hospital Management System</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Chebigen HMS</h1>
             <p className="text-gray-600 mt-2">Sign in to your account</p>
           </div>
 

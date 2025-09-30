@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { getCurrentEATTime, formatToEATDisplay } from "@/lib/time-utils"
 import type { UserRole } from "@/lib/auth"
 import { AlertCircle, Search } from "lucide-react"
 
@@ -94,13 +95,19 @@ export function AppointmentSchedulingForm({
   const loadPatients = async () => {
     const supabase = createClient()
     try {
+      console.log("Loading patients for appointment scheduling...")
       const { data, error } = await supabase.from("patients").select("id, mrn, first_name, last_name, contact")
 
-      if (error) throw error
+      if (error) {
+        console.error("Error loading patients:", error)
+        throw error
+      }
 
+      console.log("Loaded patients:", data?.length || 0, "patients")
       setPatients(data || [])
     } catch (error) {
       console.error("Error loading patients:", error)
+      setError("Failed to load patients. Please check your permissions.")
     }
   }
 
@@ -153,9 +160,15 @@ export function AppointmentSchedulingForm({
       return
     }
 
-    // Check if appointment time is in the future
+    // Check if appointment time is in the future (using EAT)
     const appointmentTime = new Date(formData.scheduledTime)
-    if (appointmentTime <= new Date()) {
+    const currentEAT = getCurrentEATTime()
+    
+    console.log("Appointment time:", appointmentTime.toISOString())
+    console.log("Current EAT time:", currentEAT.toISOString())
+    console.log("Is appointment in future?", appointmentTime > currentEAT)
+    
+    if (appointmentTime <= currentEAT) {
       setError("Appointment time must be in the future")
       setIsLoading(false)
       return
@@ -226,7 +239,7 @@ export function AppointmentSchedulingForm({
   // Generate time slots for today and next 30 days
   const generateTimeSlots = () => {
     const slots = []
-    const today = new Date()
+    const today = getCurrentEATTime()
 
     for (let day = 0; day < 30; day++) {
       const date = new Date(today)
@@ -241,15 +254,14 @@ export function AppointmentSchedulingForm({
           const slotTime = new Date(date)
           slotTime.setHours(hour, minute, 0, 0)
 
-          // Skip past times for today
-          if (slotTime <= new Date()) continue
+          // Skip past times for today (only check if it's today)
+          const currentEAT = getCurrentEATTime()
+          const isToday = slotTime.toDateString() === currentEAT.toDateString()
+          if (isToday && slotTime <= currentEAT) continue
 
           slots.push({
             value: slotTime.toISOString().slice(0, 16),
-            label: `${slotTime.toLocaleDateString()} ${slotTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}`,
+            label: formatToEATDisplay(slotTime.toISOString()),
           })
         }
       }
@@ -289,11 +301,17 @@ export function AppointmentSchedulingForm({
               <SelectValue placeholder="Select a patient" />
             </SelectTrigger>
             <SelectContent>
-              {filteredPatients.map((patient) => (
-                <SelectItem key={patient.id} value={patient.id}>
-                  {patient.first_name} {patient.last_name} (MRN: {patient.mrn})
-                </SelectItem>
-              ))}
+              {filteredPatients.length === 0 ? (
+                <div className="p-2 text-sm text-gray-500">
+                  {patients.length === 0 ? "No patients found" : "No patients match your search"}
+                </div>
+              ) : (
+                filteredPatients.map((patient) => (
+                  <SelectItem key={patient.id} value={patient.id}>
+                    {patient.first_name} {patient.last_name} (MRN: {patient.mrn})
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>

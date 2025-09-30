@@ -127,10 +127,10 @@ export function LabResultsManagement({
     setIsLoading(true)
 
     try {
-      let query = supabase.from("lab_results").select(`
+      let query = supabase.from("lab_tests").select(`
           *,
           patient:patients(first_name, last_name, mrn),
-          ordered_by_user:users!lab_results_ordered_by_fkey(full_name)
+          ordered_by_user:users!lab_tests_ordered_by_fkey(full_name)
         `)
 
       // Filter by user role
@@ -198,7 +198,7 @@ export function LabResultsManagement({
 
     try {
       const { data, error } = await supabase
-        .from("lab_results")
+        .from("lab_tests")
         .insert({
           patient_id: formData.patientId,
           ordered_by: userId,
@@ -215,7 +215,7 @@ export function LabResultsManagement({
 
       // Log the lab order
       await supabase.from("audit_logs").insert({
-        entity: "lab_results",
+        entity: "lab_tests",
         entity_id: data.id,
         action: "LAB_ORDERED",
         details: {
@@ -260,7 +260,7 @@ export function LabResultsManagement({
 
     try {
       const { error } = await supabase
-        .from("lab_results")
+        .from("lab_tests")
         .update({
           result_value: resultData.resultValue,
           reference_range: resultData.referenceRange || null,
@@ -276,7 +276,7 @@ export function LabResultsManagement({
 
       // Log the result entry
       await supabase.from("audit_logs").insert({
-        entity: "lab_results",
+        entity: "lab_tests",
         entity_id: selectedResult.id,
         action: "RESULT_ENTERED",
         details: {
@@ -317,20 +317,20 @@ export function LabResultsManagement({
         updateData.collected_date = new Date().toISOString()
       }
 
-      const { error } = await supabase.from("lab_results").update(updateData).eq("id", resultId)
+      const { error } = await supabase.from("lab_tests").update(updateData).eq("id", resultId)
 
       if (error) throw error
 
       // Log the status change
       await supabase.from("audit_logs").insert({
-        entity: "lab_results",
+        entity: "lab_tests",
         entity_id: resultId,
         action: "STATUS_UPDATED",
         details: {
           new_status: newStatus,
           updated_by: userId,
         },
-        reason: `Lab result status changed to ${newStatus}`,
+        reason: `Lab test status changed to ${newStatus}`,
         severity: "low",
       })
 
@@ -682,7 +682,7 @@ export function LabResultsManagement({
                   <SelectValue placeholder="Select if abnormal" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Normal</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="critical">Critical</SelectItem>

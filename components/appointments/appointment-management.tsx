@@ -14,15 +14,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AppointmentSchedulingForm } from "@/components/appointments/appointment-scheduling-form"
 import { AppointmentCalendar } from "@/components/appointments/appointment-calendar"
+import { formatToEATDisplay, isAppointmentOverdue, formatOverdueDuration, getCurrentEATTime } from "@/lib/time-utils"
 import type { UserRole } from "@/lib/auth"
-import { Calendar, Search, Plus, Eye, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { Calendar, Search, Plus, Eye, Clock, CheckCircle, XCircle, AlertCircle, AlertTriangle } from "lucide-react"
 
 interface Appointment {
   id: string
   patient_id: string
   provider_id: string
   scheduled_time: string
-  status: "scheduled" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
+  status: "scheduled" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show" | "arrived"
   notes: string
   created_at: string
   duration?: number
@@ -73,8 +74,8 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
       // First, get appointments
       let query = supabase.from("appointments").select("*")
 
-      // Filter by date
-      const today = new Date()
+      // Filter by date using EAT
+      const today = getCurrentEATTime()
       if (dateFilter === "today") {
         const todayStr = today.toISOString().split("T")[0]
         query = query.gte("scheduled_time", `${todayStr}T00:00:00`).lt("scheduled_time", `${todayStr}T23:59:59`)
@@ -270,6 +271,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
     const statusConfig = {
       scheduled: { color: "bg-blue-100 text-blue-800", icon: Clock },
       confirmed: { color: "bg-green-100 text-green-800", icon: CheckCircle },
+      arrived: { color: "bg-purple-100 text-purple-800", icon: CheckCircle },
       in_progress: { color: "bg-yellow-100 text-yellow-800", icon: Clock },
       completed: { color: "bg-green-100 text-green-800", icon: CheckCircle },
       cancelled: { color: "bg-red-100 text-red-800", icon: XCircle },
@@ -391,6 +393,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                         <SelectItem value="all">All Statuses</SelectItem>
                         <SelectItem value="scheduled">Scheduled</SelectItem>
                         <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="arrived">Arrived</SelectItem>
                         <SelectItem value="in_progress">In Progress</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -456,21 +459,14 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {new Date(appointment.scheduled_time).toLocaleDateString()}
+                                {formatToEATDisplay(appointment.scheduled_time)}
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {new Date(appointment.scheduled_time).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                                {" - "}
-                                {new Date(
-                                  new Date(appointment.scheduled_time).getTime() + (appointment.duration || 30) * 60000,
-                                ).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </div>
+                              {isAppointmentOverdue(appointment.scheduled_time, appointment.status) && (
+                                <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  <span>{formatOverdueDuration(appointment.scheduled_time)}</span>
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>{getAppointmentTypeBadge(appointment.appointment_type || "consultation")}</TableCell>
@@ -488,9 +484,36 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                                 </Button>
                               )}
                               {canUpdateStatus(appointment) && appointment.status === "confirmed" && (
+                                <Button size="sm" onClick={() => handleStatusUpdate(appointment.id, "arrived")} className="w-full sm:w-auto">
+                                  <CheckCircle className="h-4 w-4 sm:mr-1" />
+                                  <span className="hidden sm:inline">Mark Arrived</span>
+                                </Button>
+                              )}
+                              {canUpdateStatus(appointment) && appointment.status === "arrived" && (
                                 <Button size="sm" onClick={() => handleStatusUpdate(appointment.id, "in_progress")} className="w-full sm:w-auto">
                                   <Clock className="h-4 w-4 sm:mr-1" />
                                   <span className="hidden sm:inline">Start</span>
+                                </Button>
+                              )}
+                              {canUpdateStatus(appointment) && appointment.status === "in_progress" && (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => {
+                                    if (isAppointmentOverdue(appointment.scheduled_time, appointment.status)) {
+                                      const confirmComplete = window.confirm(
+                                        `This appointment is ${formatOverdueDuration(appointment.scheduled_time)}. Are you sure you want to mark it as completed?`
+                                      )
+                                      if (confirmComplete) {
+                                        handleStatusUpdate(appointment.id, "completed")
+                                      }
+                                    } else {
+                                      handleStatusUpdate(appointment.id, "completed")
+                                    }
+                                  }} 
+                                  className="w-full sm:w-auto"
+                                >
+                                  <CheckCircle className="h-4 w-4 sm:mr-1" />
+                                  <span className="hidden sm:inline">Complete</span>
                                 </Button>
                               )}
                             </div>
@@ -546,7 +569,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Date & Time</Label>
-                  <p className="font-medium">{new Date(selectedAppointment.scheduled_time).toLocaleString()}</p>
+                  <p className="font-medium">{formatToEATDisplay(selectedAppointment.scheduled_time)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Duration</Label>
@@ -586,6 +609,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                     <SelectContent>
                       <SelectItem value="scheduled">Scheduled</SelectItem>
                       <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="arrived">Arrived</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>

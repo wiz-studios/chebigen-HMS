@@ -230,55 +230,55 @@ export function InventoryManagement({ userRole, userId }: InventoryManagementPro
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Items</CardTitle>
+            <Package className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalItems}</div>
-            <p className="text-xs text-muted-foreground">Inventory items</p>
+            <div className="text-lg md:text-2xl font-bold">{stats.totalItems}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Inventory items</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Low Stock</CardTitle>
+            <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">Items need reordering</p>
+            <div className="text-lg md:text-2xl font-bold text-orange-600">{stats.lowStockItems}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Items need reordering</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expired Items</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Expired Items</CardTitle>
+            <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.expiredItems}</div>
-            <p className="text-xs text-muted-foreground">Items past expiry</p>
+            <div className="text-lg md:text-2xl font-bold text-red-600">{stats.expiredItems}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Items past expiry</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Value</CardTitle>
+            <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
-            <p className="text-xs text-muted-foreground">Available stock value</p>
+            <div className="text-lg md:text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
+            <p className="text-xs text-muted-foreground hidden md:block">Available stock value</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Content */}
       <Tabs defaultValue="items" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="items">Items</TabsTrigger>
           <TabsTrigger value="orders">Purchase Orders</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
