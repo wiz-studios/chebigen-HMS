@@ -323,7 +323,7 @@ export function PatientDetailsDialog({ patient, open, onOpenChange, userRole }: 
                 Create Encounter
               </Button>
             )}
-            {userRole === "receptionist" && (
+            {(userRole === "receptionist" || userRole === "doctor" || userRole === "nurse" || userRole === "superadmin") && (
               <Button>
                 <Calendar className="h-4 w-4 mr-2" />
                 Schedule Appointment

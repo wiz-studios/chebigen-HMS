@@ -87,10 +87,23 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
           .lte("scheduled_time", weekEnd.toISOString().split("T")[0] + "T23:59:59")
       }
 
-      // Filter by user role
+      // Filter by user role for appointment visibility
       if (userRole === "doctor" && userId) {
+        // Doctors see only their own appointments
         query = query.eq("provider_id", userId)
+      } else if (userRole === "patient" && userId) {
+        // Patients see only their own appointments
+        query = query.eq("patient_id", userId)
+      } else if (userRole === "lab_tech" || userRole === "pharmacist") {
+        // Lab technicians and pharmacists don't see appointments
+        // They should see lab orders/prescriptions instead
+        setAppointments([])
+        setError(userRole === "lab_tech" ? 
+          "Lab technicians should use the Clinical tab to view lab orders and test requests." :
+          "Pharmacists should use the Clinical tab to view prescriptions and medication orders.")
+        return
       }
+      // Receptionist, nurse, and superadmin see all appointments (no additional filtering)
 
       const { data: appointments, error: appointmentsError } = await query.order("scheduled_time", { ascending: true })
 

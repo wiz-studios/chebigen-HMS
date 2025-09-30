@@ -77,19 +77,42 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
       // Get total patients
       const { count: totalPatients } = await supabase.from("patients").select("*", { count: "exact", head: true })
 
-      // Get today's appointments
+      // Get today's appointments (role-based filtering)
       const today = new Date().toISOString().split("T")[0]
-      const { count: todayAppointments } = await supabase
+      let appointmentQuery = supabase
         .from("appointments")
         .select("*", { count: "exact", head: true })
         .gte("scheduled_time", `${today}T00:00:00`)
         .lt("scheduled_time", `${today}T23:59:59`)
+      
+      // Apply role-based filtering for appointment visibility
+      if (user.role === "doctor") {
+        appointmentQuery = appointmentQuery.eq("provider_id", user.id)
+      } else if (user.role === "patient") {
+        appointmentQuery = appointmentQuery.eq("patient_id", user.id)
+      } else if (user.role === "lab_tech" || user.role === "pharmacist") {
+        // Lab technicians and pharmacists don't see appointments
+        appointmentQuery = appointmentQuery.eq("id", "00000000-0000-0000-0000-000000000000") // Impossible condition
+      }
+      // Receptionist, nurse, and superadmin see all appointments (no additional filtering)
+      
+      const { count: todayAppointments } = await appointmentQuery
 
-      // Get pending lab results
-      const { count: pendingResults } = await supabase
-        .from("lab_tests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending")
+      // Get pending lab results or prescriptions (role-based)
+      let pendingResults = 0
+      if (user.role === "lab_tech" || user.role === "superadmin") {
+        const { count } = await supabase
+          .from("lab_tests")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending")
+        pendingResults = count || 0
+      } else if (user.role === "pharmacist") {
+        const { count } = await supabase
+          .from("prescriptions")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "active")
+        pendingResults = count || 0
+      }
 
       // Get active encounters
       const { count: activeEncounters } = await supabase
@@ -381,7 +404,14 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
               className={`flex flex-row items-center justify-between space-y-0 ${isMobile ? "pb-1" : "pb-2"}`}
             >
               <CardTitle className={isMobile ? "text-xs font-medium" : "text-sm font-medium"}>
-                {isMobile ? "Today" : "Today's Appointments"}
+                {isMobile ? "Today" : 
+                  user.role === "doctor" ? "Your Appointments Today" :
+                  user.role === "patient" ? "Your Appointments Today" :
+                  user.role === "receptionist" ? "All Appointments (Clinic)" :
+                  user.role === "nurse" ? "All Appointments (Department)" :
+                  user.role === "lab_tech" ? "Lab Orders Pending" :
+                  user.role === "pharmacist" ? "Prescriptions to Fulfill" :
+                  "Today's Appointments"}
               </CardTitle>
               <Calendar className={`text-muted-foreground ${isMobile ? "h-3 w-3" : "h-4 w-4"}`} />
             </CardHeader>
@@ -389,7 +419,15 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
               <div className={`font-bold ${isMobile ? "text-lg" : "text-2xl"}`}>
                 {isLoading ? "..." : stats.todayAppointments}
               </div>
-              {!isMobile && <p className="text-xs text-muted-foreground">Scheduled for today</p>}
+              {!isMobile && <p className="text-xs text-muted-foreground">
+                {user.role === "doctor" ? "Your scheduled appointments" :
+                 user.role === "patient" ? "Your scheduled appointments" :
+                 user.role === "receptionist" ? "All clinic appointments" :
+                 user.role === "nurse" ? "All department appointments" :
+                 user.role === "lab_tech" ? "Lab tests pending" :
+                 user.role === "pharmacist" ? "Prescriptions to fulfill" :
+                 "Scheduled for today"}
+              </p>}
             </CardContent>
           </Card>
 
@@ -398,7 +436,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
               className={`flex flex-row items-center justify-between space-y-0 ${isMobile ? "pb-1" : "pb-2"}`}
             >
               <CardTitle className={isMobile ? "text-xs font-medium" : "text-sm font-medium"}>
-                {isMobile ? "Pending" : "Pending Results"}
+                {isMobile ? "Pending" : 
+                  user.role === "lab_tech" ? "Lab Orders Pending" :
+                  user.role === "pharmacist" ? "Prescriptions to Fulfill" :
+                  "Pending Results"}
               </CardTitle>
               <FileText className={`text-muted-foreground ${isMobile ? "h-3 w-3" : "h-4 w-4"}`} />
             </CardHeader>
@@ -406,7 +447,11 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
               <div className={`font-bold text-orange-600 ${isMobile ? "text-lg" : "text-2xl"}`}>
                 {isLoading ? "..." : stats.pendingResults}
               </div>
-              {!isMobile && <p className="text-xs text-muted-foreground">Lab results pending</p>}
+              {!isMobile && <p className="text-xs text-muted-foreground">
+                {user.role === "lab_tech" ? "Lab tests pending" :
+                 user.role === "pharmacist" ? "Active prescriptions" :
+                 "Lab results pending"}
+              </p>}
             </CardContent>
           </Card>
 
@@ -635,14 +680,16 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                           Register New Patient
                         </Button>
                       )}
-                      <Button 
-                        className="w-full justify-start bg-transparent" 
-                        variant="outline"
-                        onClick={() => handleQuickAction("schedule-appointment")}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Schedule Appointment
-                      </Button>
+                      {(user.role === "receptionist" || user.role === "doctor" || user.role === "nurse" || user.role === "superadmin") && (
+                        <Button 
+                          className="w-full justify-start bg-transparent" 
+                          variant="outline"
+                          onClick={() => handleQuickAction("schedule-appointment")}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Schedule Appointment
+                        </Button>
+                      )}
                       <Button 
                         className="w-full justify-start bg-transparent" 
                         variant="outline"
