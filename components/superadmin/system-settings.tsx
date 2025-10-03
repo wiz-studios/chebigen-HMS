@@ -10,8 +10,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Save, AlertCircle, CheckCircle } from "lucide-react"
+import type { UserRole } from "@/lib/auth"
 
-export function SystemSettings() {
+interface SystemSettingsProps {
+  userRole: UserRole
+}
+
+export function SystemSettings({ userRole }: SystemSettingsProps) {
   const [settings, setSettings] = useState({
     hospitalName: "General Hospital",
     hospitalAddress: "123 Medical Center Drive",
@@ -28,6 +33,31 @@ export function SystemSettings() {
   const [isSaving, setIsSaving] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Access control based on HMS Access Control Matrix
+  const canAccessSystemSettings = () => {
+    // System Settings: SuperAdmin (Full), Others (No access)
+    return userRole === "superadmin"
+  }
+
+  if (!canAccessSystemSettings()) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>System Settings</CardTitle>
+          <CardDescription>Configure system-wide settings and preferences</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You don't have permission to access system settings. Only superadmins can modify system configuration.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))

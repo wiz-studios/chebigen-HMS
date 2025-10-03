@@ -87,23 +87,31 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
           .lte("scheduled_time", weekEnd.toISOString().split("T")[0] + "T23:59:59")
       }
 
-      // Filter by user role for appointment visibility
+      // Filter by user role for appointment visibility (based on HMS Access Control Matrix)
       if (userRole === "doctor" && userId) {
-        // Doctors see only their own appointments
+        // Doctors: Create/manage own appointments
         query = query.eq("provider_id", userId)
       } else if (userRole === "patient" && userId) {
-        // Patients see only their own appointments
+        // Patients: View own only
         query = query.eq("patient_id", userId)
+      } else if (userRole === "nurse" && userId) {
+        // Nurses: View/manage assigned appointments
+        // For now, we'll show all appointments, but this could be filtered by assigned patients
+        // TODO: Implement nurse assignment system for more granular control
+      } else if (userRole === "accountant") {
+        // Accountants: No access to appointments
+        setAppointments([])
+        setError("Accountants don't have access to appointment management. Use the Billing section for financial records.")
+        return
       } else if (userRole === "lab_tech" || userRole === "pharmacist") {
-        // Lab technicians and pharmacists don't see appointments
-        // They should see lab orders/prescriptions instead
+        // Lab technicians and pharmacists: No access to appointments
         setAppointments([])
         setError(userRole === "lab_tech" ? 
           "Lab technicians should use the Clinical tab to view lab orders and test requests." :
           "Pharmacists should use the Clinical tab to view prescriptions and medication orders.")
         return
       }
-      // Receptionist, nurse, and superadmin see all appointments (no additional filtering)
+      // Superadmin and receptionist see all appointments (no additional filtering)
 
       const { data: appointments, error: appointmentsError } = await query.order("scheduled_time", { ascending: true })
 

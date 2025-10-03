@@ -90,23 +90,37 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
     onStatsUpdate?.()
   }
 
+  // Access control based on HMS Access Control Matrix
   const canAccessClinical = () => {
-    return ["superadmin", "doctor", "nurse", "lab_tech"].includes(userRole)
+    // Medical Records: SuperAdmin (Full), Doctor (Full own patients), Nurse (Update vitals+notes), Patient (View self), Lab Tech (Update lab results only), Pharmacist (Prescriptions only)
+    return ["superadmin", "doctor", "nurse", "patient", "lab_tech", "pharmacist"].includes(userRole)
   }
 
   const canAccessLab = () => {
-    return ["superadmin", "doctor", "nurse", "lab_tech"].includes(userRole)
+    // Lab Test Orders: SuperAdmin (Full), Doctor (Create/view own), Lab Tech (Fulfill/update)
+    // Lab Results: SuperAdmin (Full), Doctor (View own), Lab Tech (Add/update only)
+    return ["superadmin", "doctor", "lab_tech"].includes(userRole)
   }
 
   const canAccessPrescriptions = () => {
-    return ["superadmin", "doctor", "pharmacist"].includes(userRole)
+    // Prescriptions: SuperAdmin (Full), Doctor (Create for own patients), Patient (View self only), Pharmacist (Dispense/manage)
+    return ["superadmin", "doctor", "patient", "pharmacist"].includes(userRole)
+  }
+
+  const canAccessVitals = () => {
+    // Vitals/Nursing Notes: SuperAdmin (Full), Nurse (Add/update assigned), Doctor (View own), Patient (View self)
+    return ["superadmin", "nurse", "doctor", "patient"].includes(userRole)
   }
 
   if (!canAccessClinical()) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>You don't have permission to access clinical modules.</AlertDescription>
+        <AlertDescription>
+          You don't have permission to access clinical management features.
+          {userRole === "receptionist" && " Receptionists don't have access to medical records."}
+          {userRole === "accountant" && " Accountants don't have access to medical records. Use the Billing section for financial records."}
+        </AlertDescription>
       </Alert>
     )
   }
@@ -189,11 +203,13 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
                 <span className="hidden sm:inline">Encounters</span>
                 <span className="sm:hidden">Enc</span>
               </TabsTrigger>
-              <TabsTrigger value="vitals" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Vitals</span>
-                <span className="sm:hidden">Vitals</span>
-              </TabsTrigger>
+              {canAccessVitals() && (
+                <TabsTrigger value="vitals" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Vitals</span>
+                  <span className="sm:hidden">Vitals</span>
+                </TabsTrigger>
+              )}
               {canAccessLab() && (
                 <TabsTrigger value="lab-results" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                   <TestTube className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -220,15 +236,17 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
               />
             </TabsContent>
 
-            <TabsContent value="vitals">
-              <VitalsRecording
-                userRole={userRole}
-                userId={userId}
-                onStatsUpdate={handleStatsUpdate}
-                onSuccess={(message) => setSuccess(message)}
-                onError={(message) => setError(message)}
-              />
-            </TabsContent>
+            {canAccessVitals() && (
+              <TabsContent value="vitals">
+                <VitalsRecording
+                  userRole={userRole}
+                  userId={userId}
+                  onStatsUpdate={handleStatsUpdate}
+                  onSuccess={(message) => setSuccess(message)}
+                  onError={(message) => setError(message)}
+                />
+              </TabsContent>
+            )}
 
             {canAccessLab() && (
               <TabsContent value="lab-results">

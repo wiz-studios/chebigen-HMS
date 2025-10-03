@@ -15,11 +15,12 @@ import { PatientRegistrationForm } from "@/components/patients/patient-registrat
 import { AppointmentSchedulingForm } from "@/components/appointments/appointment-scheduling-form"
 import { EncounterManagement } from "@/components/clinical/encounter-management"
 import { PrescriptionManagement } from "@/components/clinical/prescription-management"
+import { BillingManagement } from "@/components/billing/billing-management"
 import NotificationCenter from "@/components/notifications/notification-center"
 import { MobileNavigation } from "@/components/ui/mobile-navigation"
 import { MobileTabs, MobileTabContent } from "@/components/ui/mobile-tabs"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Bell } from "lucide-react"
+import { Bell, DollarSign } from "lucide-react"
 import type { User } from "@/lib/auth"
 import { Users, Calendar, FileText, Activity, Stethoscope, UserPlus, BarChart3 } from "lucide-react"
 
@@ -330,6 +331,11 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
       icon: FileText,
     },
     {
+      value: "billing",
+      label: isMobile ? "Billing" : "Billing",
+      icon: DollarSign,
+    },
+    {
       value: "overview",
       label: isMobile ? "Overview" : "Overview",
       icon: Activity,
@@ -477,7 +483,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
         {isMobile ? (
           <MobileTabs tabs={tabsConfig} value={activeTab} onValueChange={setActiveTab}>
             <MobileTabContent value="patients" activeValue={activeTab}>
-              <PatientManagement userRole={user.role} onStatsUpdate={loadDashboardStats} />
+              <PatientManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
             </MobileTabContent>
 
             <MobileTabContent value="appointments" activeValue={activeTab}>
@@ -486,6 +492,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
 
             <MobileTabContent value="clinical" activeValue={activeTab}>
               <ClinicalManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
+            </MobileTabContent>
+
+            <MobileTabContent value="billing" activeValue={activeTab}>
+              <BillingManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
             </MobileTabContent>
 
             <MobileTabContent value="overview" activeValue={activeTab}>
@@ -598,7 +608,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
           </MobileTabs>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="patients" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Patients
@@ -611,6 +621,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                 <FileText className="h-4 w-4" />
                 Clinical
               </TabsTrigger>
+              <TabsTrigger value="billing" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Billing
+              </TabsTrigger>
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 Overview
@@ -618,7 +632,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
             </TabsList>
 
             <TabsContent value="patients">
-              <PatientManagement userRole={user.role} onStatsUpdate={loadDashboardStats} />
+              <PatientManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
             </TabsContent>
 
             <TabsContent value="appointments">
@@ -627,6 +641,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
 
             <TabsContent value="clinical">
               <ClinicalManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
+            </TabsContent>
+
+            <TabsContent value="billing">
+              <BillingManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
             </TabsContent>
 
             <TabsContent value="overview">

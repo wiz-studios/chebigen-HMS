@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UserRole } from "@/lib/auth"
-import { Plus, Search, Eye, Clock } from "lucide-react"
+import { Plus, Search, Eye, Clock, AlertCircle } from "lucide-react"
+import { BillingTrigger } from "@/components/billing/billing-trigger"
 
 interface Encounter {
   id: string
@@ -78,11 +79,34 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
     notes: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Access control based on HMS Access Control Matrix
+  const canCreateEncounters = () => {
+    // Consultation Notes: SuperAdmin (Full), Doctor (Add/update own patients), Others (No access)
+    return ["superadmin", "doctor"].includes(userRole)
+  }
+
+  const canViewEncounters = () => {
+    // Consultation Notes: SuperAdmin (Full), Doctor (Add/update own patients), Patient (View self only)
+    return ["superadmin", "doctor", "patient"].includes(userRole)
+  }
 
   useEffect(() => {
     console.log("Loading encounters for user:", userId, "role:", userRole)
-    loadEncounters()
-    loadPatients()
+    if (canViewEncounters()) {
+      loadEncounters()
+      loadPatients()
+    } else {
+      setEncounters([])
+      setError("You don't have permission to view consultation notes. " +
+        (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+         userRole === "accountant" ? "Use the Billing section for financial records." :
+         userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+         userRole === "pharmacist" ? "Use the Prescriptions tab for medication management." :
+         userRole === "nurse" ? "Use the Vitals tab for nursing notes." :
+         "Contact your administrator for access."))
+    }
   }, [userId])
 
   useEffect(() => {
@@ -100,10 +124,24 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
           doctor:users!encounters_provider_id_fkey(full_name)
         `)
 
-      // Filter by user role
-      if (userRole === "doctor") {
+      // Filter by user role based on HMS Access Control Matrix
+      if (userRole === "doctor" && userId) {
+        // Doctors: Add/update own patients' consultation notes
         query = query.eq("provider_id", userId)
+      } else if (userRole === "patient" && userId) {
+        // Patients: View self consultation notes only
+        query = query.eq("patient_id", userId)
+      } else if (userRole === "receptionist" || userRole === "accountant" || userRole === "lab_tech" || userRole === "pharmacist") {
+        // These roles don't have access to consultation notes
+        setEncounters([])
+        setError("You don't have permission to view consultation notes. " +
+          (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+           userRole === "accountant" ? "Use the Billing section for financial records." :
+           userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+           "Use the Prescriptions tab for medication management."))
+        return
       }
+      // Superadmin and nurse see all encounters (nurse can update vitals + notes)
 
       const { data, error } = await query.order("encounter_date", { ascending: false })
 
@@ -230,10 +268,6 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
     onSuccess("Status updates are not available for encounters")
   }
 
-  const canCreateEncounters = () => {
-    return ["superadmin", "doctor", "nurse"].includes(userRole)
-  }
-
   // Status badge function removed since encounters table doesn't have a status field
 
   const getEncounterTypeBadge = (type: string) => {
@@ -249,6 +283,23 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
       <Badge className={typeColors[type as keyof typeof typeColors] || "bg-gray-100 text-gray-800"}>
         {type.replace("_", " ").toUpperCase()}
       </Badge>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">Patient Encounters</h3>
+            <p className="text-sm text-gray-600">Manage patient visits and medical encounters</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertCircle className="h-4 w-4" />
+          <span>{error}</span>
+        </div>
+      </div>
     )
   }
 
@@ -527,6 +578,20 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Billing Trigger - Show after encounter creation */}
+      {selectedEncounter && (
+        <BillingTrigger
+          encounterId={selectedEncounter.id}
+          patientId={selectedEncounter.patient_id}
+          userRole={userRole}
+          userId={userId}
+          onInvoiceCreated={() => {
+            onStatsUpdate()
+            setSelectedEncounter(null)
+          }}
+        />
       )}
     </div>
   )

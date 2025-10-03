@@ -32,10 +32,11 @@ interface Patient {
 
 interface PatientManagementProps {
   userRole: UserRole
+  userId?: string
   onStatsUpdate: () => void
 }
 
-export function PatientManagement({ userRole, onStatsUpdate }: PatientManagementProps) {
+export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientManagementProps) {
   const [patients, setPatients] = useState<Patient[]>([])
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -54,12 +55,84 @@ export function PatientManagement({ userRole, onStatsUpdate }: PatientManagement
     filterPatients()
   }, [patients, searchTerm])
 
+  // Access control functions based on the HMS Access Control Matrix
+  const canViewPatients = () => {
+    return ["superadmin", "receptionist", "doctor", "nurse", "patient", "accountant", "lab_tech"].includes(userRole)
+  }
+
+  const canCreatePatients = () => {
+    return ["superadmin", "receptionist"].includes(userRole)
+  }
+
+  const canUpdatePatients = () => {
+    return ["superadmin", "receptionist"].includes(userRole)
+  }
+
+  const canDeletePatients = () => {
+    return ["superadmin"].includes(userRole)
+  }
+
   const loadPatients = async () => {
     const supabase = createClient()
     setIsLoading(true)
 
     try {
-      const { data, error } = await supabase.from("patients").select("*").order("created_at", { ascending: false })
+      if (!canViewPatients()) {
+        setError("You don't have permission to view patients")
+        setPatients([])
+        return
+      }
+
+      let query = supabase.from("patients").select("*")
+
+      // Apply role-based filtering
+      if (userRole === "doctor" && userId) {
+        // Doctors can only view patients assigned to them (through appointments)
+        const { data: appointments } = await supabase
+          .from("appointments")
+          .select("patient_id")
+          .eq("provider_id", userId)
+          .not("patient_id", "is", null)
+        
+        const assignedPatientIds = [...new Set(appointments?.map(a => a.patient_id) || [])]
+        if (assignedPatientIds.length > 0) {
+          query = query.in("id", assignedPatientIds)
+        } else {
+          // No assigned patients
+          setPatients([])
+          return
+        }
+      } else if (userRole === "patient" && userId) {
+        // Patients can only view their own record
+        query = query.eq("user_id", userId)
+      } else if (userRole === "nurse" && userId) {
+        // Nurses can view patients in their assigned ward/department
+        // For now, we'll show all patients, but this could be filtered by ward/department
+        // TODO: Implement ward-based filtering when ward system is added
+      } else if (userRole === "accountant") {
+        // Accountants can view billing-related patient data only
+        // For now, we'll show all patients, but this could be filtered to billing-relevant fields
+        // TODO: Implement billing-specific patient view
+      } else if (userRole === "lab_tech" && userId) {
+        // Lab technicians can only view patients with lab tests assigned to them
+        const { data: labTests } = await supabase
+          .from("lab_tests")
+          .select("patient_id")
+          .eq("ordered_by", userId)
+          .not("patient_id", "is", null)
+        
+        const labPatientIds = [...new Set(labTests?.map(l => l.patient_id) || [])]
+        if (labPatientIds.length > 0) {
+          query = query.in("id", labPatientIds)
+        } else {
+          // No lab tests assigned
+          setPatients([])
+          return
+        }
+      }
+      // Superadmin and receptionist see all patients (no additional filtering)
+
+      const { data, error } = await query.order("created_at", { ascending: false })
 
       if (error) throw error
 
@@ -101,11 +174,11 @@ export function PatientManagement({ userRole, onStatsUpdate }: PatientManagement
   }
 
   const canRegisterPatients = () => {
-    return ["superadmin", "receptionist", "nurse"].includes(userRole)
+    return canCreatePatients() // Use the access control matrix function
   }
 
   const canEditPatients = () => {
-    return ["superadmin", "receptionist", "nurse", "doctor"].includes(userRole)
+    return canUpdatePatients() // Use the access control matrix function
   }
 
   const getGenderBadge = (gender: string) => {

@@ -21,6 +21,7 @@ import type { User, UserRole } from "@/lib/auth"
 import { UserCheck, UserX, Search, CheckCircle, XCircle, AlertCircle, Trash2 } from "lucide-react"
 
 interface UserManagementProps {
+  userRole: UserRole
   onStatsUpdate: () => void
 }
 
@@ -28,7 +29,7 @@ interface UserWithDetails extends User {
   patient_count?: number
 }
 
-export function UserManagement({ onStatsUpdate }: UserManagementProps) {
+export function UserManagement({ userRole, onStatsUpdate }: UserManagementProps) {
   const [users, setUsers] = useState<UserWithDetails[]>([])
   const [filteredUsers, setFilteredUsers] = useState<UserWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -48,8 +49,19 @@ export function UserManagement({ onStatsUpdate }: UserManagementProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  // Access control based on HMS Access Control Matrix
+  const canAccessSystemUsers = () => {
+    // System Users: SuperAdmin (Full CRUD), Others (No access)
+    return userRole === "superadmin"
+  }
+
   useEffect(() => {
-    loadUsers()
+    if (canAccessSystemUsers()) {
+      loadUsers()
+    } else {
+      setUsers([])
+      setError("You don't have permission to access system user management. Only superadmins can manage system users.")
+    }
   }, [])
 
   useEffect(() => {

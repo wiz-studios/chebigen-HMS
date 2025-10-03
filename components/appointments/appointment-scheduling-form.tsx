@@ -66,6 +66,33 @@ export function AppointmentSchedulingForm({
   userRole,
   currentUserId,
 }: AppointmentSchedulingFormProps) {
+  // Access control based on HMS Access Control Matrix
+  const canCreateAppointments = () => {
+    return ["superadmin", "receptionist", "doctor", "nurse"].includes(userRole)
+  }
+
+  // Check if user has permission to create appointments
+  if (!canCreateAppointments()) {
+    return (
+      <div className="p-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to schedule appointments. 
+            {userRole === "accountant" && " Use the Billing section for financial records."}
+            {userRole === "lab_tech" && " Use the Clinical tab to view lab orders and test requests."}
+            {userRole === "pharmacist" && " Use the Clinical tab to view prescriptions and medication orders."}
+            {userRole === "patient" && " Contact reception to schedule appointments."}
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-end mt-4">
+          <Button variant="outline" onClick={onCancel}>
+            Close
+          </Button>
+        </div>
+      </div>
+    )
+  }
   const [formData, setFormData] = useState<AppointmentFormData>({
     patientId: "",
     doctorId: userRole === "doctor" ? currentUserId || "" : "",

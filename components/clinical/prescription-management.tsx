@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UserRole } from "@/lib/auth"
-import { Plus, Search, Eye, Pill, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Search, Eye, Pill, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 
 interface Prescription {
   id: string
@@ -111,11 +111,36 @@ export function PrescriptionManagement({
     instructions: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Access control based on HMS Access Control Matrix
+  const canViewPrescriptions = () => {
+    // Prescriptions: SuperAdmin (Full), Doctor (Create for own patients), Patient (View self only), Pharmacist (Dispense/manage)
+    return ["superadmin", "doctor", "patient", "pharmacist"].includes(userRole)
+  }
+
+  const canCreatePrescriptions = () => {
+    // Prescriptions: SuperAdmin (Full), Doctor (Create for own patients)
+    return ["superadmin", "doctor"].includes(userRole)
+  }
 
   useEffect(() => {
-    loadPrescriptions()
-    loadPatients()
-  }, [userId])
+    if (canViewPrescriptions()) {
+      setError(null) // Clear any previous errors
+      loadPrescriptions()
+      if (canCreatePrescriptions()) {
+        loadPatients()
+      }
+    } else {
+      setPrescriptions([])
+      setError("You don't have permission to view prescriptions. " +
+        (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+         userRole === "accountant" ? "Use the Billing section for financial records." :
+         userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+         userRole === "nurse" ? "Use the Vitals tab for nursing notes." :
+         "Contact your administrator for access."))
+    }
+  }, [userId, userRole])
 
   useEffect(() => {
     filterPrescriptions()
@@ -124,6 +149,7 @@ export function PrescriptionManagement({
   const loadPrescriptions = async () => {
     const supabase = createClient()
     setIsLoading(true)
+    setError(null) // Clear any previous errors
 
     try {
       let query = supabase.from("prescriptions").select(`
@@ -132,10 +158,24 @@ export function PrescriptionManagement({
           prescribed_by_user:users!prescriptions_prescribed_by_fkey(full_name)
         `)
 
-      // Filter by user role
-      if (userRole === "doctor") {
+      // Filter by user role based on HMS Access Control Matrix
+      if (userRole === "doctor" && userId) {
+        // Doctors: Create for own patients
         query = query.eq("prescribed_by", userId)
+      } else if (userRole === "patient" && userId) {
+        // Patients: View self only
+        query = query.eq("patient_id", userId)
+      } else if (userRole === "receptionist" || userRole === "accountant" || userRole === "lab_tech" || userRole === "nurse") {
+        // These roles don't have access to prescriptions
+        setPrescriptions([])
+        setError("You don't have permission to view prescriptions. " +
+          (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+           userRole === "accountant" ? "Use the Billing section for financial records." :
+           userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+           "Use the Vitals tab for nursing notes."))
+        return
       }
+      // Superadmin sees all prescriptions (no additional filtering)
 
       const { data, error } = await query.order("created_at", { ascending: false })
 
@@ -143,8 +183,8 @@ export function PrescriptionManagement({
 
       setPrescriptions(data || [])
     } catch (error) {
-      onError("Failed to load prescriptions")
       console.error("Error loading prescriptions:", error)
+      setError("Failed to load prescriptions")
     } finally {
       setIsLoading(false)
     }
@@ -196,7 +236,7 @@ export function PrescriptionManagement({
 
     if (!formData.patientId || !formData.medicationName || !formData.dosage || !formData.duration) {
       console.log("Validation failed - missing required fields")
-      onError("Please fill in all required fields")
+      setError("Please fill in all required fields")
       setIsSubmitting(false)
       return
     }
@@ -334,7 +374,7 @@ export function PrescriptionManagement({
         code: error?.code
       })
       
-      onError(`Failed to create prescription: ${errorMessage}`)
+      setError(`Failed to create prescription: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -365,7 +405,7 @@ export function PrescriptionManagement({
       await loadPrescriptions()
       onStatsUpdate()
     } catch (error) {
-      onError("Failed to update prescription status")
+      setError("Failed to update prescription status")
       console.error("Error updating prescription:", error)
     }
   }
@@ -397,6 +437,23 @@ export function PrescriptionManagement({
   const getFrequencyLabel = (frequency: string) => {
     const freq = FREQUENCIES.find((f) => f.value === frequency)
     return freq ? freq.label : frequency.replace("_", " ")
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">Prescriptions</h3>
+            <p className="text-sm text-gray-600">Manage patient prescriptions and medications</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertCircle className="h-4 w-4" />
+          <span>{error}</span>
+        </div>
+      </div>
+    )
   }
 
   return (

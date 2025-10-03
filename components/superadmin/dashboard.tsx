@@ -180,15 +180,15 @@ export function SuperAdminDashboard({ user }: SuperAdminDashboardProps) {
           </TabsList>
 
           <TabsContent value="users">
-            <UserManagement onStatsUpdate={loadDashboardStats} />
+            <UserManagement userRole={user.role} onStatsUpdate={loadDashboardStats} />
           </TabsContent>
 
           <TabsContent value="audit">
-            <AuditLogs />
+            <AuditLogs userRole={user.role} />
           </TabsContent>
 
           <TabsContent value="settings">
-            <SystemSettings />
+            <SystemSettings userRole={user.role} />
           </TabsContent>
 
           <TabsContent value="overview">

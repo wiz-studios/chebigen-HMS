@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UserRole } from "@/lib/auth"
 import { Plus, Search, Eye, TestTube, Upload } from "lucide-react"
+import { BillingTrigger } from "@/components/billing/billing-trigger"
 
 interface LabResult {
   id: string
@@ -112,10 +113,40 @@ export function LabResultsManagement({
     notes: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Access control based on HMS Access Control Matrix
+  const canViewLabResults = () => {
+    // Lab Results: SuperAdmin (Full), Doctor (View own), Lab Tech (Add/update only)
+    return ["superadmin", "doctor", "lab_tech"].includes(userRole)
+  }
+
+  const canCreateLabOrders = () => {
+    // Lab Test Orders: SuperAdmin (Full), Doctor (Create for own patients)
+    return ["superadmin", "doctor"].includes(userRole)
+  }
+
+  const canFulfillLabResults = () => {
+    // Lab Test Orders: Lab Tech (Fulfill/update status/results)
+    return ["superadmin", "lab_tech"].includes(userRole)
+  }
 
   useEffect(() => {
-    loadLabResults()
-    loadPatients()
+    if (canViewLabResults()) {
+      loadLabResults()
+      if (canCreateLabOrders()) {
+        loadPatients()
+      }
+    } else {
+      setLabResults([])
+      setError("You don't have permission to view lab results. " +
+        (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+         userRole === "accountant" ? "Use the Billing section for financial records." :
+         userRole === "nurse" ? "Use the Vitals tab for nursing notes." :
+         userRole === "pharmacist" ? "Use the Prescriptions tab for medication management." :
+         userRole === "patient" ? "Contact your doctor for lab results." :
+         "Contact your administrator for access."))
+    }
   }, [userId])
 
   useEffect(() => {
@@ -133,10 +164,26 @@ export function LabResultsManagement({
           ordered_by_user:users!lab_tests_ordered_by_fkey(full_name)
         `)
 
-      // Filter by user role
-      if (userRole === "doctor") {
+      // Filter by user role based on HMS Access Control Matrix
+      if (userRole === "doctor" && userId) {
+        // Doctors: View own patients' lab results
         query = query.eq("ordered_by", userId)
+      } else if (userRole === "lab_tech" && userId) {
+        // Lab technicians: Add/update lab results (can see all for fulfillment)
+        // No additional filtering - lab techs can see all lab tests to fulfill them
+      } else if (userRole === "receptionist" || userRole === "accountant" || userRole === "nurse" || userRole === "pharmacist" || userRole === "patient") {
+        // These roles don't have access to lab results
+        setLabResults([])
+        setError("You don't have permission to view lab results. " +
+          (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+           userRole === "accountant" ? "Use the Billing section for financial records." :
+           userRole === "nurse" ? "Use the Vitals tab for nursing notes." :
+           userRole === "pharmacist" ? "Use the Prescriptions tab for medication management." :
+           userRole === "patient" ? "Contact your doctor for lab results." :
+           "Contact your administrator for access."))
+        return
       }
+      // Superadmin sees all lab results (no additional filtering)
 
       const { data, error } = await query.order("ordered_date", { ascending: false })
 

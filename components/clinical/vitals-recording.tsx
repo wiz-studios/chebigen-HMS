@@ -76,9 +76,32 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Access control based on HMS Access Control Matrix
+  const canRecordVitals = () => {
+    // Vitals/Nursing Notes: SuperAdmin (Full), Nurse (Add/update assigned), Doctor (View own patients)
+    return ["superadmin", "nurse"].includes(userRole)
+  }
+
+  const canViewVitals = () => {
+    // Vitals/Nursing Notes: SuperAdmin (Full), Nurse (Add/update assigned), Doctor (View own), Patient (View self)
+    return ["superadmin", "nurse", "doctor", "patient"].includes(userRole)
+  }
+
   useEffect(() => {
-    loadVitals()
-    loadPatients()
+    if (canViewVitals()) {
+      loadVitals()
+      if (canRecordVitals()) {
+        loadPatients()
+      }
+    } else {
+      setVitals([])
+      setError("You don't have permission to view vitals. " +
+        (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+         userRole === "accountant" ? "Use the Billing section for financial records." :
+         userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+         userRole === "pharmacist" ? "Use the Prescriptions tab for medication management." :
+         "Contact your administrator for access."))
+    }
   }, [])
 
   useEffect(() => {
@@ -90,14 +113,48 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
     setIsLoading(true)
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("vitals")
         .select(`
           *,
           patient:patients(first_name, last_name, mrn),
           recorded_by_user:users!vitals_recorded_by_fkey(full_name)
         `)
-        .order("timestamp", { ascending: false })
+
+      // Filter by user role based on HMS Access Control Matrix
+      if (userRole === "doctor" && userId) {
+        // Doctors: View own patients' vitals
+        // Get patients assigned to this doctor through appointments
+        const { data: appointments } = await supabase
+          .from("appointments")
+          .select("patient_id")
+          .eq("provider_id", userId)
+          .not("patient_id", "is", null)
+        
+        const assignedPatientIds = [...new Set(appointments?.map(a => a.patient_id) || [])]
+        if (assignedPatientIds.length > 0) {
+          query = query.in("patient_id", assignedPatientIds)
+        } else {
+          // No assigned patients
+          setVitals([])
+          return
+        }
+      } else if (userRole === "patient" && userId) {
+        // Patients: View self vitals only
+        query = query.eq("patient_id", userId)
+      } else if (userRole === "receptionist" || userRole === "accountant" || userRole === "lab_tech" || userRole === "pharmacist") {
+        // These roles don't have access to vitals
+        setVitals([])
+        setError("You don't have permission to view vitals. " +
+          (userRole === "receptionist" ? "Use the Appointments section for scheduling." :
+           userRole === "accountant" ? "Use the Billing section for financial records." :
+           userRole === "lab_tech" ? "Use the Lab Results tab for test management." :
+           "Use the Prescriptions tab for medication management."))
+        return
+      }
+      // Superadmin and nurse see all vitals (nurse can add/update assigned patients)
+
+      const { data, error } = await query.order("timestamp", { ascending: false })
 
       if (error) throw error
 
@@ -219,10 +276,6 @@ export function VitalsRecording({ userRole, userId, onStatsUpdate, onSuccess, on
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const canRecordVitals = () => {
-    return ["superadmin", "doctor", "nurse"].includes(userRole)
   }
 
   const getVitalStatus = (value: number | null | undefined, normal: { min: number; max: number }) => {

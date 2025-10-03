@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Eye, AlertTriangle, Info, AlertCircle } from "lucide-react"
+import type { UserRole } from "@/lib/auth"
 
 interface AuditLog {
   id: string
@@ -26,16 +27,32 @@ interface AuditLog {
   }
 }
 
-export function AuditLogs() {
+interface AuditLogsProps {
+  userRole: UserRole
+}
+
+export function AuditLogs({ userRole }: AuditLogsProps) {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [entityFilter, setEntityFilter] = useState<string>("all")
   const [severityFilter, setSeverityFilter] = useState<string>("all")
+  const [error, setError] = useState<string | null>(null)
+
+  // Access control based on HMS Access Control Matrix
+  const canAccessAuditLogs = () => {
+    // Audit Logs: SuperAdmin (Full), Others (No access)
+    return userRole === "superadmin"
+  }
 
   useEffect(() => {
-    loadAuditLogs()
+    if (canAccessAuditLogs()) {
+      loadAuditLogs()
+    } else {
+      setLogs([])
+      setError("You don't have permission to access audit logs. Only superadmins can view system audit logs.")
+    }
   }, [])
 
   useEffect(() => {
@@ -118,6 +135,23 @@ export function AuditLogs() {
       default:
         return <Info className="h-4 w-4 text-gray-600" />
     }
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit Logs</CardTitle>
+          <CardDescription>System activity and security audit trail</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-4 w-4" />
+            <span>{error}</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
