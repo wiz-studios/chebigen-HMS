@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UserRole } from "@/lib/auth"
 import { Plus, Search, Eye, TestTube, Upload } from "lucide-react"
-import { BillingTrigger } from "@/components/billing/billing-trigger"
 
 interface LabResult {
   id: string

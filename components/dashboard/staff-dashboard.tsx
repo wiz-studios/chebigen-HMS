@@ -11,11 +11,11 @@ import { LogoutButton } from "@/components/auth/logout-button"
 import { PatientManagement } from "@/components/patients/patient-management"
 import { AppointmentManagement } from "@/components/appointments/appointment-management"
 import { ClinicalManagement } from "@/components/clinical/clinical-management"
+import { EnhancedBillingDashboard } from "@/components/billing/enhanced-billing-dashboard"
 import { PatientRegistrationForm } from "@/components/patients/patient-registration-form"
 import { AppointmentSchedulingForm } from "@/components/appointments/appointment-scheduling-form"
 import { EncounterManagement } from "@/components/clinical/encounter-management"
 import { PrescriptionManagement } from "@/components/clinical/prescription-management"
-import { BillingManagement } from "@/components/billing/billing-management"
 import NotificationCenter from "@/components/notifications/notification-center"
 import { MobileNavigation } from "@/components/ui/mobile-navigation"
 import { MobileTabs, MobileTabContent } from "@/components/ui/mobile-tabs"
@@ -495,7 +495,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
             </MobileTabContent>
 
             <MobileTabContent value="billing" activeValue={activeTab}>
-              <BillingManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
+              <EnhancedBillingDashboard userRole={user.role} userId={user.id} />
             </MobileTabContent>
 
             <MobileTabContent value="overview" activeValue={activeTab}>
@@ -644,7 +644,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
             </TabsContent>
 
             <TabsContent value="billing">
-              <BillingManagement userRole={user.role} userId={user.id} onStatsUpdate={loadDashboardStats} />
+              <EnhancedBillingDashboard userRole={user.role} userId={user.id} />
             </TabsContent>
 
             <TabsContent value="overview">

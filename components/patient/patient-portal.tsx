@@ -152,10 +152,6 @@ export function PatientPortal({ user }: PatientPortalProps) {
                   <FileText className="h-4 w-4" />
                   Medical Records
                 </TabsTrigger>
-                <TabsTrigger value="billing" className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  Billing
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="profile">
@@ -228,17 +224,6 @@ export function PatientPortal({ user }: PatientPortalProps) {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="billing">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Billing & Payments</CardTitle>
-                    <CardDescription>View invoices and payment history</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-500">Billing information coming soon...</p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
             </Tabs>
           </>
         )}

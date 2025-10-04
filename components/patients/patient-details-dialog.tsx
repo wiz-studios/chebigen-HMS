@@ -176,7 +176,6 @@ export function PatientDetailsDialog({ patient, open, onOpenChange, userRole }: 
               <TabsTrigger value="demographics">Demographics</TabsTrigger>
               <TabsTrigger value="medical">Medical History</TabsTrigger>
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
             </TabsList>
 
             <TabsContent value="demographics">
@@ -299,17 +298,6 @@ export function PatientDetailsDialog({ patient, open, onOpenChange, userRole }: 
               </Card>
             </TabsContent>
 
-            <TabsContent value="billing">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing Information</CardTitle>
-                  <CardDescription>Patient's billing history and outstanding balances</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">Billing information coming soon...</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
 
           {/* Action Buttons */}

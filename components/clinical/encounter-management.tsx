@@ -14,7 +14,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { UserRole } from "@/lib/auth"
 import { Plus, Search, Eye, Clock, AlertCircle } from "lucide-react"
-import { BillingTrigger } from "@/components/billing/billing-trigger"
 
 interface Encounter {
   id: string
@@ -580,19 +579,6 @@ export function EncounterManagement({ userRole, userId, onStatsUpdate, onSuccess
         </Dialog>
       )}
 
-      {/* Billing Trigger - Show after encounter creation */}
-      {selectedEncounter && (
-        <BillingTrigger
-          encounterId={selectedEncounter.id}
-          patientId={selectedEncounter.patient_id}
-          userRole={userRole}
-          userId={userId}
-          onInvoiceCreated={() => {
-            onStatsUpdate()
-            setSelectedEncounter(null)
-          }}
-        />
-      )}
     </div>
   )
 }
