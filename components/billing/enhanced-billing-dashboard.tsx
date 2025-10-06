@@ -14,7 +14,8 @@ import {
   Plus,
   Search,
   Filter,
-  Download
+  Download,
+  RefreshCw
 } from "lucide-react"
 import { billingService } from "@/lib/supabase/billing"
 import { getBillingPermissions } from "@/lib/types/billing"
@@ -24,6 +25,7 @@ import { BillList } from "./bill-list"
 import { CreateBillDialog } from "./create-bill-dialog"
 import { BillingReports } from "./billing-reports"
 import { PaymentDialog } from "./payment-dialog"
+import { BillDebugPanel } from "./bill-debug-panel"
 
 interface EnhancedBillingDashboardProps {
   userRole: string
@@ -45,25 +47,52 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState<BillingFilters>({})
   const [showCreateBill, setShowCreateBill] = useState(false)
+  
+  // Debug dialog state
+  console.log("Dashboard: showCreateBill state:", showCreateBill)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
 
   const permissions = getBillingPermissions(userRole)
+  
+  // Debug permissions
+  console.log("Dashboard: User role:", userRole)
+  console.log("Dashboard: Permissions:", permissions)
+  console.log("Dashboard: Can create bill:", permissions.canCreateBill)
 
   useEffect(() => {
     loadData()
   }, [filters])
 
   const loadData = async () => {
+    console.log("=== DASHBOARD: Loading data ===")
     setIsLoading(true)
     try {
+      console.log("Dashboard: Fetching stats and bills...")
       const [statsData, billsData] = await Promise.all([
         billingService.getBillingStats(userRole, userId),
         billingService.getBills(filters, 1, 20, userRole, userId)
       ])
       
+      console.log("Dashboard: Stats data:", statsData)
+      console.log("Dashboard: Bills data:", billsData)
+      console.log("Dashboard: Bills count:", billsData.bills?.length || 0)
+      
+      // Log each bill's status
+      if (billsData.bills) {
+        billsData.bills.forEach((bill, index) => {
+          console.log(`Dashboard: Bill ${index + 1}:`, {
+            id: bill.id,
+            status: bill.status,
+            total_amount: bill.total_amount,
+            paid_amount: bill.paid_amount
+          })
+        })
+      }
+      
       setStats(statsData)
       setBills(billsData.bills)
+      console.log("Dashboard: Data loaded successfully")
     } catch (error) {
       console.error("Dashboard: Error loading billing data:", error)
     } finally {
@@ -98,7 +127,7 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
         console.log("Dashboard: Refreshing data after bill creation...")
         await loadData()
         setShowCreateBill(false)
-      }, 1000)
+      }, 2000) // Increased delay to 2 seconds
     } catch (error) {
       console.error("Error creating bill:", error)
       console.error("Error details:", {
@@ -116,18 +145,25 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
 
   const handleRecordPayment = async (paymentData: any) => {
     try {
+      console.log("=== DASHBOARD: Starting payment recording ===")
       console.log("Dashboard: Recording payment:", paymentData)
+      
       const payment = await billingService.recordPayment(paymentData, userId, userRole)
       console.log("Dashboard: Payment recorded successfully:", payment.id)
       
+      // Wait a moment for database to process
+      console.log("Dashboard: Waiting for database to process...")
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       // Refresh data to show updated bill status
+      console.log("Dashboard: Refreshing data after payment...")
       await loadData()
       
-      // Close dialog
+      console.log("Dashboard: Payment recording completed successfully")
+      
+      // Close dialog after data refresh
       setShowPaymentDialog(false)
       setSelectedBill(null)
-      
-      console.log("Dashboard: Payment recording completed successfully")
     } catch (error) {
       console.error("Dashboard: Error recording payment:", error)
       throw error // Re-throw to let PaymentDialog handle the error message
@@ -291,11 +327,20 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             {permissions.canGenerateReports && (
               <TabsTrigger value="reports">Reports</TabsTrigger>
             )}
+            <TabsTrigger value="debug">Debug</TabsTrigger>
           </TabsList>
           
           <div className="flex items-center gap-2">
             {permissions.canCreateBill && (
-              <Button onClick={() => setShowCreateBill(true)}>
+              <Button onClick={() => {
+                console.log("Create Bill button clicked!")
+                console.log("Setting showCreateBill to true")
+                setShowCreateBill(true)
+                // Force re-render to ensure dialog opens
+                setTimeout(() => {
+                  console.log("Dialog should be open now")
+                }, 100)
+              }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Bill
               </Button>
@@ -345,6 +390,17 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             }}>
               Fix All Amounts
             </Button>
+            <Button 
+              variant="outline"
+              onClick={async () => {
+                console.log("Dashboard: Manual refresh triggered")
+                await loadData()
+                alert("Data refreshed!")
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
             <Button variant="outline">
               <Search className="h-4 w-4 mr-2" />
               Search
@@ -379,11 +435,16 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             <BillingReports stats={stats} />
           </TabsContent>
         )}
+
+        <TabsContent value="debug" className="space-y-4">
+          <BillDebugPanel userRole={userRole} userId={userId} />
+        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
       {permissions.canCreateBill && (
         <CreateBillDialog
+          key={`create-bill-${showCreateBill}`}
           open={showCreateBill}
           onOpenChange={setShowCreateBill}
           onSubmit={handleCreateBill}

@@ -73,8 +73,7 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
       setPaymentMethod("cash")
       setNotes("")
       
-      // Close dialog
-      onOpenChange(false)
+      // Dialog will be closed by the dashboard after data refresh
     } catch (error) {
       console.error('Error recording payment:', error)
       alert(`❌ Error recording payment: ${error.message}`)

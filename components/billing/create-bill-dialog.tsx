@@ -39,7 +39,7 @@ export function CreateBillDialog({ open, onOpenChange, onSubmit }: CreateBillDia
   const [patients, setPatients] = useState<Patient[]>([])
   const [selectedPatient, setSelectedPatient] = useState<string>("")
   const [items, setItems] = useState<BillItem[]>([
-    { item_type: 'appointment', description: '', quantity: 1, unit_price: 0, total_price: 0 }
+    { item_type: 'appointment', description: 'Consultation', quantity: 1, unit_price: 0, total_price: 0 }
   ])
   const [notes, setNotes] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -117,8 +117,15 @@ export function CreateBillDialog({ open, onOpenChange, onSubmit }: CreateBillDia
     console.log("Items:", items)
     console.log("Notes:", notes)
     
-    if (!selectedPatient || items.some(item => !item.description || item.unit_price <= 0)) {
-      console.log("Form validation failed")
+    if (!selectedPatient) {
+      console.log("Form validation failed: No patient selected")
+      alert("Please select a patient")
+      return
+    }
+    
+    if (items.some(item => !item.description || item.unit_price <= 0)) {
+      console.log("Form validation failed: Invalid items")
+      alert("Please fill in all item descriptions and ensure unit prices are greater than 0")
       return
     }
 
@@ -136,7 +143,7 @@ export function CreateBillDialog({ open, onOpenChange, onSubmit }: CreateBillDia
       
       // Reset form
       setSelectedPatient("")
-      setItems([{ item_type: 'appointment', description: '', quantity: 1, unit_price: 0, total_price: 0 }])
+      setItems([{ item_type: 'appointment', description: 'Consultation', quantity: 1, unit_price: 0, total_price: 0 }])
       setNotes("")
     } catch (error) {
       console.error('Error creating bill:', error)
@@ -155,7 +162,7 @@ export function CreateBillDialog({ open, onOpenChange, onSubmit }: CreateBillDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Create New Bill</DialogTitle>
           <DialogDescription>

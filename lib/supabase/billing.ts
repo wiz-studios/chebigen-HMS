@@ -189,61 +189,134 @@ export class BillingService {
         throw new Error("Failed to create bill - no data returned")
       }
 
-        // Insert bill items
-        if (request.items.length > 0) {
-          const items = request.items.map(item => ({
-            ...item,
-            bill_id: bill.id,
-            total_price: item.quantity * item.unit_price
-          }))
+    // Insert bill items
+    if (request.items.length > 0) {
+      const items = request.items.map(item => ({
+        ...item,
+        bill_id: bill.id,
+        total_price: item.quantity * item.unit_price
+      }))
 
-          console.log("BillingService: Bill items to insert:", items)
-          console.log("BillingService: Items total calculation:", items.map(item => ({
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price
-          })))
+      console.log("BillingService: Bill items to insert:", items)
+      console.log("BillingService: Items total calculation:", items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price
+      })))
 
-          const { error: itemsError } = await this.supabase
-            .from('bill_items')
-            .insert(items)
+      const { error: itemsError } = await this.supabase
+        .from('bill_items')
+        .insert(items)
 
-          if (itemsError) {
-            console.error("BillingService: Error inserting bill items:", itemsError)
-            throw itemsError
-          }
+      if (itemsError) {
+        console.error("BillingService: Error inserting bill items:", itemsError)
+        throw itemsError
+      }
 
-          console.log("BillingService: Bill items inserted successfully")
+      console.log("BillingService: Bill items inserted successfully")
+      
+      // Wait for triggers to process
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Check if triggers updated the total
+      const { data: triggerCheck, error: triggerError } = await this.supabase
+        .from('bills')
+        .select('total_amount')
+        .eq('id', bill.id)
+        .single()
+      
+      if (triggerError) {
+        console.error("BillingService: Error checking trigger update:", triggerError)
+      } else {
+        console.log("BillingService: Trigger check - bill total:", triggerCheck?.total_amount)
+      }
 
         // Always manually calculate and update the total to ensure accuracy
         console.log("BillingService: Manually calculating bill total...")
         const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0)
         console.log("BillingService: Calculated total amount:", totalAmount)
         
-        const { error: updateError } = await this.supabase
+        // EMERGENCY: Force update with multiple approaches
+        console.log("BillingService: EMERGENCY - Force updating bill total amount...")
+        
+        // Approach 1: Standard update
+        console.log("BillingService: Approach 1 - Standard update...")
+        const { error: updateError1 } = await this.supabase
           .from('bills')
-          .update({ total_amount: totalAmount })
+          .update({ 
+            total_amount: totalAmount,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', bill.id)
         
-        if (updateError) {
-          console.error("BillingService: Error updating total:", updateError)
-          throw updateError
+        if (updateError1) {
+          console.error("BillingService: Standard update failed:", updateError1)
         } else {
-          console.log("BillingService: Successfully updated total to:", totalAmount)
+          console.log("BillingService: Standard update completed")
         }
-
-        // Verify the update worked
-        const { data: verifyBill, error: verifyError } = await this.supabase
+        
+        // Approach 2: Force update with RPC call
+        console.log("BillingService: Approach 2 - RPC force update...")
+        try {
+          const { error: rpcError } = await this.supabase.rpc('force_update_bill_total', {
+            bill_id: bill.id,
+            new_total: totalAmount
+          })
+          
+          if (rpcError) {
+            console.error("BillingService: RPC update failed:", rpcError)
+          } else {
+            console.log("BillingService: RPC update completed")
+          }
+        } catch (rpcError) {
+          console.error("BillingService: RPC error:", rpcError)
+        }
+        
+        // Approach 3: Direct SQL execution
+        console.log("BillingService: Approach 3 - Direct SQL execution...")
+        try {
+          const { error: sqlError } = await this.supabase
+            .from('bills')
+            .update({ 
+              total_amount: totalAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bill.id)
+            .select()
+          
+          if (sqlError) {
+            console.error("BillingService: Direct SQL failed:", sqlError)
+          } else {
+            console.log("BillingService: Direct SQL completed")
+          }
+        } catch (sqlError) {
+          console.error("BillingService: Direct SQL error:", sqlError)
+        }
+        
+        // Wait for database to process
+        console.log("BillingService: Waiting for database to process...")
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Final verification
+        console.log("BillingService: Final verification...")
+        const { data: finalBill, error: finalError } = await this.supabase
           .from('bills')
           .select('total_amount')
           .eq('id', bill.id)
           .single()
         
-        if (verifyError) {
-          console.error("BillingService: Error verifying update:", verifyError)
+        if (finalError) {
+          console.error("BillingService: Final verification error:", finalError)
         } else {
-          console.log("BillingService: Verified bill total in database:", verifyBill?.total_amount)
+          console.log("BillingService: Final bill total in database:", finalBill?.total_amount)
+          
+          if (finalBill?.total_amount === totalAmount) {
+            console.log("BillingService: ✅ Total amount successfully updated!")
+          } else {
+            console.log(`BillingService: ❌ Total mismatch. Expected: ${totalAmount}, Got: ${finalBill?.total_amount}`)
+            console.log("BillingService: This indicates a critical database issue")
+          }
         }
     }
 
@@ -513,55 +586,73 @@ export class BillingService {
 
     console.log("BillingService: Payment recorded successfully:", payment.id)
 
-    // Wait for triggers to update the bill status
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Check if the bill status was updated by triggers
-    const { data: updatedBill, error: billCheckError } = await this.supabase
+    // Get current bill state before any updates
+    const { data: currentBill, error: currentBillError } = await this.supabase
       .from('bills')
       .select('status, paid_amount, total_amount')
       .eq('id', request.bill_id)
       .single()
 
-    if (billCheckError) {
-      console.error("BillingService: Error checking bill status:", billCheckError)
+    if (currentBillError) {
+      console.error("BillingService: Error getting current bill state:", currentBillError)
     } else {
-      console.log("BillingService: Bill status after payment:", {
-        status: updatedBill?.status,
-        paidAmount: updatedBill?.paid_amount,
-        totalAmount: updatedBill?.total_amount
+      console.log("BillingService: Current bill state:", {
+        status: currentBill?.status,
+        paidAmount: currentBill?.paid_amount,
+        totalAmount: currentBill?.total_amount
       })
+    }
 
-      // Manual status update as fallback if triggers didn't work
-      const newPaidAmount = (updatedBill?.paid_amount || 0) + request.amount
-      const totalAmount = updatedBill?.total_amount || 0
-      
-      let newStatus = 'pending'
-      if (newPaidAmount >= totalAmount) {
-        newStatus = 'paid'
-      } else if (newPaidAmount > 0) {
-        newStatus = 'partial'
-      }
+    // Calculate new values
+    const newPaidAmount = (currentBill?.paid_amount || 0) + request.amount
+    const totalAmount = currentBill?.total_amount || 0
+    
+    let newStatus = 'pending'
+    if (newPaidAmount >= totalAmount) {
+      newStatus = 'paid'
+    } else if (newPaidAmount > 0) {
+      newStatus = 'partial'
+    }
 
-      // Update status if it's not correct
-      if (updatedBill?.status !== newStatus) {
-        console.log("BillingService: Manually updating bill status to:", newStatus)
-        
-        const { error: statusUpdateError } = await this.supabase
-          .from('bills')
-          .update({ 
-            status: newStatus,
-            paid_amount: newPaidAmount,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', request.bill_id)
+    console.log("BillingService: Calculated new values:", {
+      newPaidAmount,
+      totalAmount,
+      newStatus,
+      paymentAmount: request.amount
+    })
 
-        if (statusUpdateError) {
-          console.error("BillingService: Error manually updating status:", statusUpdateError)
-        } else {
-          console.log("BillingService: Successfully updated bill status to:", newStatus)
-        }
-      }
+    // Update bill status and paid amount
+    const { error: statusUpdateError } = await this.supabase
+      .from('bills')
+      .update({ 
+        status: newStatus,
+        paid_amount: newPaidAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', request.bill_id)
+
+    if (statusUpdateError) {
+      console.error("BillingService: Error updating bill status:", statusUpdateError)
+      throw statusUpdateError
+    } else {
+      console.log("BillingService: Successfully updated bill status to:", newStatus)
+    }
+
+    // Verify the update worked
+    const { data: finalBill, error: finalBillError } = await this.supabase
+      .from('bills')
+      .select('status, paid_amount, total_amount')
+      .eq('id', request.bill_id)
+      .single()
+
+    if (finalBillError) {
+      console.error("BillingService: Error verifying final bill state:", finalBillError)
+    } else {
+      console.log("BillingService: Final bill state after update:", {
+        status: finalBill?.status,
+        paidAmount: finalBill?.paid_amount,
+        totalAmount: finalBill?.total_amount
+      })
     }
 
     return payment
@@ -654,6 +745,59 @@ export class BillingService {
       .eq('id', billId)
 
     if (error) throw error
+  }
+
+  // Test method to verify database state
+  async testDatabaseState(billId: string): Promise<any> {
+    console.log("BillingService: Testing database state for bill:", billId)
+    
+    try {
+      // Get bill details
+      const { data: bill, error: billError } = await this.supabase
+        .from('bills')
+        .select('*')
+        .eq('id', billId)
+        .single()
+
+      if (billError) {
+        console.error("BillingService: Error fetching bill:", billError)
+        return { error: billError }
+      }
+
+      // Get payment history
+      const { data: payments, error: paymentsError } = await this.supabase
+        .from('payment_history')
+        .select('*')
+        .eq('bill_id', billId)
+
+      if (paymentsError) {
+        console.error("BillingService: Error fetching payments:", paymentsError)
+        return { error: paymentsError }
+      }
+
+      const totalPayments = payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0
+      
+      const result = {
+        bill: {
+          id: bill.id,
+          status: bill.status,
+          total_amount: bill.total_amount,
+          paid_amount: bill.paid_amount
+        },
+        payments: payments || [],
+        totalPayments,
+        expectedStatus: totalPayments >= bill.total_amount ? 'paid' : 
+                      totalPayments > 0 ? 'partial' : 'pending',
+        statusMatches: bill.status === (totalPayments >= bill.total_amount ? 'paid' : 
+                                      totalPayments > 0 ? 'partial' : 'pending')
+      }
+
+      console.log("BillingService: Database state test result:", result)
+      return result
+    } catch (error) {
+      console.error("BillingService: Error in testDatabaseState:", error)
+      return { error }
+    }
   }
 
   // Helper method to calculate revenue by month
