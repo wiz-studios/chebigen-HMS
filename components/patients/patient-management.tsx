@@ -222,13 +222,17 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Patient Management</CardTitle>
-              <CardDescription>Manage patient records and information</CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Patient Management</CardTitle>
+              <CardDescription className="text-sm">Manage patient records and information</CardDescription>
             </div>
             {canRegisterPatients() && (
-              <Button onClick={() => setShowRegistrationForm(true)}>
+              <Button 
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => setShowRegistrationForm(true)}
+              >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Register Patient
               </Button>
@@ -237,22 +241,22 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
         </CardHeader>
         <CardContent>
           {/* Search */}
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-4 sm:mb-6">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search patients by name, MRN, or contact..."
+                  placeholder="Search patients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm"
                 />
               </div>
             </div>
           </div>
 
-          {/* Patients Table */}
-          <div className="rounded-md border overflow-x-auto">
+          {/* Patients Table - Desktop */}
+          <div className="hidden md:block rounded-md border overflow-x-auto">
             <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow>
@@ -318,15 +322,15 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
                         <div className="text-sm">{new Date(patient.created_at).toLocaleDateString()}</div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleViewPatient(patient)} className="w-full sm:w-auto">
-                            <Eye className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">View</span>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleViewPatient(patient)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
                           </Button>
                           {canEditPatients() && (
-                            <Button size="sm" variant="outline" className="w-full sm:w-auto">
-                              <Edit className="h-4 w-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Edit</span>
+                            <Button size="sm" variant="outline">
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
                             </Button>
                           )}
                         </div>
@@ -336,6 +340,80 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="text-sm text-gray-500">Loading patients...</div>
+              </div>
+            ) : filteredPatients.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-sm text-gray-500">
+                  {searchTerm ? "No patients found matching your search" : "No patients registered yet"}
+                </div>
+              </div>
+            ) : (
+              filteredPatients.map((patient) => (
+                <Card key={patient.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-base">
+                          {patient.first_name} {patient.last_name}
+                        </div>
+                        <Badge variant="outline" className="font-mono text-xs mt-1">
+                          {patient.mrn}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" onClick={() => handleViewPatient(patient)}>
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        {canEditPatients() && (
+                          <Button size="sm" variant="outline">
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-500">Age/Gender:</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span>{calculateAge(patient.dob)} years</span>
+                          {getGenderBadge(patient.gender)}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Contact:</span>
+                        <div className="mt-1">{patient.contact || "Not provided"}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm">
+                      <span className="text-gray-500">Insurance:</span>
+                      <div className="mt-1">
+                        {patient.insurance_provider ? (
+                          <div>
+                            <div className="font-medium">{patient.insurance_provider}</div>
+                            <div className="text-gray-500 text-xs">{patient.insurance_number}</div>
+                          </div>
+                        ) : (
+                          "No insurance"
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-500">
+                      Registered: {new Date(patient.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

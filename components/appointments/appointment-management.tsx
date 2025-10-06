@@ -350,16 +350,17 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Appointment Management</CardTitle>
-              <CardDescription>Schedule and manage patient appointments</CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Appointment Management</CardTitle>
+              <CardDescription className="text-sm">Schedule and manage patient appointments</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1">
                 <Button
                   variant={viewMode === "list" ? "default" : "outline"}
                   size="sm"
+                  className="flex-1 sm:flex-none"
                   onClick={() => setViewMode("list")}
                 >
                   List
@@ -367,16 +368,21 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                 <Button
                   variant={viewMode === "calendar" ? "default" : "outline"}
                   size="sm"
+                  className="flex-1 sm:flex-none"
                   onClick={() => setViewMode("calendar")}
                 >
                   <Calendar className="h-4 w-4 mr-1" />
-                  Calendar
+                  <span className="hidden sm:inline">Calendar</span>
                 </Button>
               </div>
               {canScheduleAppointments() && (
-                <Button onClick={() => setShowSchedulingForm(true)}>
+                <Button 
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => setShowSchedulingForm(true)}
+                >
                   <Plus className="h-4 w-4 mr-2" />
-                  Schedule Appointment
+                  Schedule
                 </Button>
               )}
             </div>
@@ -392,8 +398,8 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
           ) : (
             <>
               {/* Filters */}
-              <div className="flex flex-col gap-4 mb-6">
-                <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1">
                     <div className="relative">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -401,14 +407,14 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                         placeholder="Search appointments..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
+                        className="pl-10 text-sm"
                       />
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
+                      <SelectTrigger className="w-full text-sm">
+                        <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Statuses</SelectItem>
@@ -422,8 +428,8 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                       </SelectContent>
                     </Select>
                     <Select value={dateFilter} onValueChange={setDateFilter}>
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Filter by date" />
+                      <SelectTrigger className="w-full text-sm">
+                        <SelectValue placeholder="Date" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="today">Today</SelectItem>

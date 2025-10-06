@@ -143,7 +143,7 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
       )}
 
       {/* Clinical Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">Active Encounters</CardTitle>
@@ -192,34 +192,34 @@ export function ClinicalManagement({ userRole, userId, onStatsUpdate }: Clinical
       {/* Clinical Modules */}
       <Card>
         <CardHeader>
-          <CardTitle>Clinical Records</CardTitle>
-          <CardDescription>Manage patient encounters, vitals, lab results, and prescriptions</CardDescription>
+          <CardTitle className="text-lg sm:text-xl">Clinical Records</CardTitle>
+          <CardDescription className="text-sm">Manage patient encounters, vitals, lab results, and prescriptions</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="encounters" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-              <TabsTrigger value="encounters" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              <TabsTrigger value="encounters" className="flex items-center gap-1 text-xs">
+                <FileText className="h-3 w-3" />
                 <span className="hidden sm:inline">Encounters</span>
                 <span className="sm:hidden">Enc</span>
               </TabsTrigger>
               {canAccessVitals() && (
-                <TabsTrigger value="vitals" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <TabsTrigger value="vitals" className="flex items-center gap-1 text-xs">
+                  <Activity className="h-3 w-3" />
                   <span className="hidden sm:inline">Vitals</span>
                   <span className="sm:hidden">Vitals</span>
                 </TabsTrigger>
               )}
               {canAccessLab() && (
-                <TabsTrigger value="lab-results" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <TestTube className="h-3 w-3 sm:h-4 sm:w-4" />
+                <TabsTrigger value="lab-results" className="flex items-center gap-1 text-xs">
+                  <TestTube className="h-3 w-3" />
                   <span className="hidden sm:inline">Lab Results</span>
                   <span className="sm:hidden">Lab</span>
                 </TabsTrigger>
               )}
               {canAccessPrescriptions() && (
-                <TabsTrigger value="prescriptions" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                  <Pill className="h-3 w-3 sm:h-4 sm:w-4" />
+                <TabsTrigger value="prescriptions" className="flex items-center gap-1 text-xs">
+                  <Pill className="h-3 w-3" />
                   <span className="hidden sm:inline">Prescriptions</span>
                   <span className="sm:hidden">Rx</span>
                 </TabsTrigger>

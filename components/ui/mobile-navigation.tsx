@@ -137,7 +137,7 @@ export function MobileNavigation({ user, unreadNotifications = 0 }: MobileNaviga
           <span className="sr-only">Toggle navigation menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 p-0">
+      <SheetContent side="left" className="w-72 p-0">
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-6 border-b">

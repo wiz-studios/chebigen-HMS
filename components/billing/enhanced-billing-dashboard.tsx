@@ -321,8 +321,8 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
 
       {/* Main Content */}
       <Tabs defaultValue="bills" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="bills">Bills</TabsTrigger>
             {permissions.canGenerateReports && (
               <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -330,22 +330,30 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             <TabsTrigger value="debug">Debug</TabsTrigger>
           </TabsList>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {permissions.canCreateBill && (
-              <Button onClick={() => {
-                console.log("Create Bill button clicked!")
-                console.log("Setting showCreateBill to true")
-                setShowCreateBill(true)
-                // Force re-render to ensure dialog opens
-                setTimeout(() => {
-                  console.log("Dialog should be open now")
-                }, 100)
-              }}>
+              <Button 
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  console.log("Create Bill button clicked!")
+                  console.log("Setting showCreateBill to true")
+                  setShowCreateBill(true)
+                  // Force re-render to ensure dialog opens
+                  setTimeout(() => {
+                    console.log("Dialog should be open now")
+                  }, 100)
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Bill
               </Button>
             )}
-            <Button variant="outline" onClick={async () => {
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={async () => {
               console.log("=== FIXING ALL BILL AMOUNTS (COMPREHENSIVE) ===");
               try {
                 // Get all bills with 0 total
@@ -392,6 +400,8 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             </Button>
             <Button 
               variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={async () => {
                 console.log("Dashboard: Manual refresh triggered")
                 await loadData()
@@ -401,16 +411,16 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Search className="h-4 w-4 mr-2" />
               Search
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
             {permissions.canGenerateReports && (
-              <Button variant="outline">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>

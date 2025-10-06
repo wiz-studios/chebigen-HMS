@@ -346,8 +346,8 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className={`${isMobile ? "px-4" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}`}>
-          <div className={`flex justify-between items-center ${isMobile ? "py-4" : "py-6"}`}>
+        <div className={`${isMobile ? "px-3" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}`}>
+          <div className={`flex justify-between items-center ${isMobile ? "py-3" : "py-6"}`}>
             <div className="flex items-center">
               <MobileNavigation user={user} unreadNotifications={unreadNotifications} />
               {!isMobile && (
@@ -385,9 +385,9 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
         </div>
       </div>
 
-      <div className={`${isMobile ? "px-4 py-4" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}`}>
+      <div className={`${isMobile ? "px-3 py-3" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}`}>
         {/* Stats Overview */}
-        <div className={`grid gap-4 mb-6 ${isMobile ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"}`}>
+        <div className={`grid gap-3 mb-6 ${isMobile ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"}`}>
           <Card>
             <CardHeader
               className={`flex flex-row items-center justify-between space-y-0 ${isMobile ? "pb-1" : "pb-2"}`}
@@ -535,15 +535,15 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                     <CardTitle className="text-base">Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1">
                       {(user.role === "receptionist" || user.role === "nurse") && (
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="h-auto py-3 flex-col bg-transparent"
+                          className="h-auto py-2 flex-col bg-transparent"
                           onClick={() => handleQuickAction("new-patient")}
                         >
-                          <UserPlus className="h-4 w-4 mb-1" />
+                          <UserPlus className="h-3 w-3 mb-1" />
                           <span className="text-xs">New Patient</span>
                         </Button>
                       )}
@@ -551,10 +551,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="h-auto py-3 flex-col bg-transparent"
+                          className="h-auto py-2 flex-col bg-transparent"
                           onClick={() => handleQuickAction("schedule-appointment")}
                         >
-                          <Calendar className="h-4 w-4 mb-1" />
+                          <Calendar className="h-3 w-3 mb-1" />
                           <span className="text-xs">Schedule</span>
                         </Button>
                       )}
@@ -562,10 +562,10 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="h-auto py-3 flex-col bg-transparent"
+                          className="h-auto py-2 flex-col bg-transparent"
                           onClick={() => handleQuickAction("create-encounter")}
                         >
-                          <Activity className="h-4 w-4 mb-1" />
+                          <Activity className="h-3 w-3 mb-1" />
                           <span className="text-xs">Encounter</span>
                         </Button>
                       )}
@@ -573,30 +573,30 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="h-auto py-3 flex-col bg-transparent"
+                          className="h-auto py-2 flex-col bg-transparent"
                           onClick={() => handleQuickAction("create-prescription")}
                         >
-                          <BarChart3 className="h-4 w-4 mb-1" />
+                          <BarChart3 className="h-3 w-3 mb-1" />
                           <span className="text-xs">Prescription</span>
                         </Button>
                       )}
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-auto py-3 flex-col bg-transparent"
+                        className="h-auto py-2 flex-col bg-transparent"
                         onClick={() => handleQuickAction("notifications")}
                       >
-                        <Bell className="h-4 w-4 mb-1" />
+                        <Bell className="h-3 w-3 mb-1" />
                         <span className="text-xs">Notifications</span>
                       </Button>
                       {(user.role === "superadmin" || user.role === "doctor" || user.role === "accountant") && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-auto py-3 flex-col bg-transparent"
+                          className="h-auto py-2 flex-col bg-transparent"
                           onClick={() => handleQuickAction("analytics")}
                         >
-                          <BarChart3 className="h-4 w-4 mb-1" />
+                          <BarChart3 className="h-3 w-3 mb-1" />
                           <span className="text-xs">Analytics</span>
                         </Button>
                       )}
