@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { paymentSyncService, PaymentSyncEvent } from "@/lib/supabase/payment-sync"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -68,6 +69,48 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
     loadDashboardStats()
     loadUnreadNotifications()
     loadRecentActivities()
+    
+    // Set up enhanced payment synchronization
+    const handlePaymentSync = (event: PaymentSyncEvent) => {
+      console.log('StaffDashboard: Payment sync event received:', event)
+      
+      switch (event.type) {
+        case 'payment_recorded':
+        case 'payment_updated':
+        case 'payment_deleted':
+        case 'bill_status_changed':
+          console.log('StaffDashboard: Refreshing dashboard due to payment sync event')
+          loadDashboardStats()
+          loadRecentActivities()
+          break
+      }
+    }
+
+    // Subscribe to system-wide payment updates
+    const unsubscribePayments = paymentSyncService.subscribeToSystemPayments(handlePaymentSync)
+
+    // Set up notification updates (keep existing notification subscription)
+    const supabase = createClient()
+    const notificationChannel = supabase
+      .channel('system-notification-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications'
+        },
+        (payload) => {
+          console.log('StaffDashboard: Notification change detected:', payload)
+          loadUnreadNotifications()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      unsubscribePayments()
+      supabase.removeChannel(notificationChannel)
+    }
   }, [])
 
   const loadDashboardStats = async () => {

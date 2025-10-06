@@ -638,6 +638,8 @@ export class BillingService {
       console.log("BillingService: Successfully updated bill status to:", newStatus)
     }
 
+    // Payment notification will be handled at the application level
+
     // Verify the update worked
     const { data: finalBill, error: finalBillError } = await this.supabase
       .from('bills')
@@ -657,6 +659,7 @@ export class BillingService {
 
     return payment
   }
+
 
   // Get billing statistics
   async getBillingStats(userRole: string, userId: string): Promise<BillingStats> {

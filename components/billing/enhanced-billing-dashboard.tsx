@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { paymentSyncService, PaymentSyncEvent } from "@/lib/supabase/payment-sync"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -62,6 +64,28 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
 
   useEffect(() => {
     loadData()
+    
+    // Set up enhanced payment synchronization
+    const handlePaymentSync = (event: PaymentSyncEvent) => {
+      console.log('Dashboard: Payment sync event received:', event)
+      
+      switch (event.type) {
+        case 'payment_recorded':
+        case 'payment_updated':
+        case 'payment_deleted':
+        case 'bill_status_changed':
+          console.log('Dashboard: Refreshing data due to payment sync event')
+          loadData()
+          break
+      }
+    }
+
+    // Subscribe to system-wide payment updates
+    const unsubscribe = paymentSyncService.subscribeToSystemPayments(handlePaymentSync)
+
+    return () => {
+      unsubscribe()
+    }
   }, [filters])
 
   const loadData = async () => {
