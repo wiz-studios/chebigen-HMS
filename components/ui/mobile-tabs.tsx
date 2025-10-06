@@ -43,14 +43,14 @@ export function MobileTabs({ tabs, value, onValueChange, children, className = "
                 variant={isActive ? "default" : "outline"}
                 size="sm"
                 onClick={() => onValueChange(tab.value)}
-                className={`flex-shrink-0 text-xs px-3 py-2 ${
+                className={`flex-shrink-0 text-xs px-2 py-2 min-w-0 ${
                   isActive ? "bg-blue-600 text-white" : "bg-white text-gray-700 border-gray-300"
                 }`}
               >
-                {Icon && <Icon className="h-3 w-3 mr-1" />}
-                <span className="whitespace-nowrap text-xs">{tab.label}</span>
+                {Icon && <Icon className="h-3 w-3 mr-1 flex-shrink-0" />}
+                <span className="whitespace-nowrap text-xs truncate">{tab.label}</span>
                 {tab.badge && tab.badge > 0 && (
-                  <span className="ml-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  <span className="ml-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center flex-shrink-0">
                     {tab.badge > 99 ? "99+" : tab.badge}
                   </span>
                 )}

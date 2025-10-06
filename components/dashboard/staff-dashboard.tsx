@@ -317,27 +317,27 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
   const tabsConfig = [
     {
       value: "patients",
-      label: isMobile ? "Patients" : "Patients",
+      label: isMobile ? "Pts" : "Patients",
       icon: Users,
     },
     {
       value: "appointments",
-      label: isMobile ? "Appointments" : "Appointments",
+      label: isMobile ? "Apps" : "Appointments",
       icon: Calendar,
     },
     {
       value: "clinical",
-      label: isMobile ? "Clinical" : "Clinical",
+      label: isMobile ? "Clin" : "Clinical",
       icon: FileText,
     },
     {
       value: "billing",
-      label: isMobile ? "Billing" : "Billing",
+      label: isMobile ? "Bill" : "Billing",
       icon: DollarSign,
     },
     {
       value: "overview",
-      label: isMobile ? "Overview" : "Overview",
+      label: isMobile ? "View" : "Overview",
       icon: Activity,
     },
   ]
@@ -608,26 +608,46 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
           </MobileTabs>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="patients" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Patients
+            <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsTrigger 
+                value="patients" 
+                className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 min-w-0"
+              >
+                <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Patients</span>
+                <span className="sm:hidden whitespace-nowrap">Pts</span>
               </TabsTrigger>
-              <TabsTrigger value="appointments" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Appointments
+              <TabsTrigger 
+                value="appointments" 
+                className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 min-w-0"
+              >
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Appointments</span>
+                <span className="sm:hidden whitespace-nowrap">Apps</span>
               </TabsTrigger>
-              <TabsTrigger value="clinical" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Clinical
+              <TabsTrigger 
+                value="clinical" 
+                className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 min-w-0"
+              >
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Clinical</span>
+                <span className="sm:hidden whitespace-nowrap">Clin</span>
               </TabsTrigger>
-              <TabsTrigger value="billing" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Billing
+              <TabsTrigger 
+                value="billing" 
+                className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 min-w-0"
+              >
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Billing</span>
+                <span className="sm:hidden whitespace-nowrap">Bill</span>
               </TabsTrigger>
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Overview
+              <TabsTrigger 
+                value="overview" 
+                className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-1 sm:px-3 min-w-0"
+              >
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Overview</span>
+                <span className="sm:hidden whitespace-nowrap">View</span>
               </TabsTrigger>
             </TabsList>
 
