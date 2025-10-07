@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { paymentSyncService, PaymentSyncEvent } from "@/lib/supabase/payment-sync"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,6 +54,9 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
   console.log("Dashboard: showCreateBill state:", showCreateBill)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
+  const processingPayments = useRef<Set<string>>(new Set())
+  const paymentLocks = useRef<Map<string, number>>(new Map())
+  const loadDataTimeout = useRef<NodeJS.Timeout | null>(null)
 
   const permissions = getBillingPermissions(userRole)
   
@@ -65,7 +68,9 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
   useEffect(() => {
     loadData()
     
-    // Set up enhanced payment synchronization
+    // Set up enhanced payment synchronization with debouncing
+    let refreshTimeout: NodeJS.Timeout | null = null
+    
     const handlePaymentSync = (event: PaymentSyncEvent) => {
       console.log('Dashboard: Payment sync event received:', event)
       
@@ -74,23 +79,62 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
         case 'payment_updated':
         case 'payment_deleted':
         case 'bill_status_changed':
-          console.log('Dashboard: Refreshing data due to payment sync event')
-          loadData()
+          console.log('Dashboard: Scheduling data refresh due to payment sync event')
+          // Debounce rapid updates
+          if (refreshTimeout) {
+            clearTimeout(refreshTimeout)
+          }
+          refreshTimeout = setTimeout(() => {
+            console.log('Dashboard: Executing debounced data refresh')
+            loadData()
+          }, 500) // 500ms debounce
           break
       }
     }
 
-    // Subscribe to system-wide payment updates
-    const unsubscribe = paymentSyncService.subscribeToSystemPayments(handlePaymentSync)
+    // Subscribe to system-wide payment updates (temporarily disabled to prevent duplicates)
+    // const unsubscribe = paymentSyncService.subscribeToSystemPayments(handlePaymentSync)
+    const unsubscribe = () => {} // Disabled to prevent duplicate payments
+
+    // Clean up old payment locks every 30 seconds
+    const lockCleanupInterval = setInterval(() => {
+      const now = Date.now()
+      const oldLocks = Array.from(paymentLocks.current.entries())
+        .filter(([billId, lockTime]) => (now - lockTime) > 30000) // Remove locks older than 30 seconds
+        .map(([billId]) => billId)
+      
+      oldLocks.forEach(billId => {
+        paymentLocks.current.delete(billId)
+        processingPayments.current.delete(billId)
+      })
+      
+      if (oldLocks.length > 0) {
+        console.log('Dashboard: Cleaned up old payment locks:', oldLocks)
+      }
+    }, 30000)
 
     return () => {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
+      }
+      if (loadDataTimeout.current) {
+        clearTimeout(loadDataTimeout.current)
+      }
+      clearInterval(lockCleanupInterval)
       unsubscribe()
     }
   }, [filters])
 
   const loadData = async () => {
-    console.log("=== DASHBOARD: Loading data ===")
-    setIsLoading(true)
+    // Clear any existing timeout
+    if (loadDataTimeout.current) {
+      clearTimeout(loadDataTimeout.current)
+    }
+
+    // Debounce loadData calls
+    loadDataTimeout.current = setTimeout(async () => {
+      console.log("=== DASHBOARD: Loading data ===", new Date().toISOString())
+      setIsLoading(true)
     try {
       console.log("Dashboard: Fetching stats and bills...")
       const [statsData, billsData] = await Promise.all([
@@ -122,6 +166,7 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
     } finally {
       setIsLoading(false)
     }
+    }, 100) // 100ms debounce
   }
 
   const formatCurrency = (amount: number) => {
@@ -172,22 +217,48 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
       console.log("=== DASHBOARD: Starting payment recording ===")
       console.log("Dashboard: Recording payment:", paymentData)
       
-      const payment = await billingService.recordPayment(paymentData, userId, userRole)
-      console.log("Dashboard: Payment recorded successfully:", payment.id)
+      // Check if we're already processing a payment for this bill
+      const billId = paymentData.bill_id
+      const now = Date.now()
       
-      // Wait a moment for database to process
-      console.log("Dashboard: Waiting for database to process...")
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Check if this bill is locked (within last 10 seconds)
+      const lockTime = paymentLocks.current.get(billId)
+      if (lockTime && (now - lockTime) < 10000) {
+        console.log("Dashboard: Payment locked for bill:", billId, "lock time:", lockTime)
+        throw new Error("Payment is currently locked for this bill. Please wait a moment.")
+      }
       
-      // Refresh data to show updated bill status
-      console.log("Dashboard: Refreshing data after payment...")
-      await loadData()
+      if (processingPayments.current.has(billId)) {
+        console.log("Dashboard: Payment already being processed for bill:", billId)
+        throw new Error("Payment is already being processed for this bill")
+      }
       
-      console.log("Dashboard: Payment recording completed successfully")
+      // Mark this bill as being processed and lock it
+      processingPayments.current.add(billId)
+      paymentLocks.current.set(billId, now)
       
-      // Close dialog after data refresh
-      setShowPaymentDialog(false)
-      setSelectedBill(null)
+      try {
+        const payment = await billingService.recordPayment(paymentData, userId, userRole)
+        console.log("Dashboard: Payment recorded successfully:", payment.id)
+        
+        // Wait a moment for database to process
+        console.log("Dashboard: Waiting for database to process...")
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Refresh data to show updated bill status
+        console.log("Dashboard: Refreshing data after payment...")
+        await loadData()
+        
+        console.log("Dashboard: Payment recording completed successfully")
+        
+        // Close dialog after data refresh
+        setShowPaymentDialog(false)
+        setSelectedBill(null)
+      } finally {
+        // Always remove from processing set and lock
+        processingPayments.current.delete(billId)
+        paymentLocks.current.delete(billId)
+      }
     } catch (error) {
       console.error("Dashboard: Error recording payment:", error)
       throw error // Re-throw to let PaymentDialog handle the error message

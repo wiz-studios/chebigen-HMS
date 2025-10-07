@@ -25,15 +25,43 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash")
   const [notes, setNotes] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lastSubmissionTime, setLastSubmissionTime] = useState<number>(0)
+  const [submissionLock, setSubmissionLock] = useState<boolean>(false)
+  const [hasSubmitted, setHasSubmitted] = useState<boolean>(false)
 
   useEffect(() => {
     if (bill && open) {
       const remainingAmount = bill.total_amount - bill.paid_amount
       setAmount(remainingAmount.toString())
+      // Reset submission state when dialog opens
+      setIsSubmitting(false)
+      setIsLoading(false)
+      setLastSubmissionTime(0)
+      setSubmissionLock(false)
+      setHasSubmitted(false)
     }
   }, [bill, open])
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions with multiple checks
+    if (isSubmitting || isLoading || submissionLock || hasSubmitted) {
+      console.log("PaymentDialog: Already submitting, locked, or has submitted, ignoring duplicate submission")
+      return
+    }
+
+    // Prevent rapid submissions (within 5 seconds)
+    const now = Date.now()
+    if (now - lastSubmissionTime < 5000) {
+      console.log("PaymentDialog: Too soon since last submission, ignoring")
+      return
+    }
+
+    // Set submission lock and submitted flag immediately
+    setSubmissionLock(true)
+    setHasSubmitted(true)
+    setLastSubmissionTime(now)
+
     if (!bill || !amount || parseFloat(amount) <= 0) {
       return
     }
@@ -46,7 +74,9 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
       return
     }
 
+    setIsSubmitting(true)
     setIsLoading(true)
+    
     try {
       const paymentData: RecordPaymentRequest = {
         bill_id: bill.id,
@@ -79,6 +109,8 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
       alert(`❌ Error recording payment: ${error.message}`)
     } finally {
       setIsLoading(false)
+      setIsSubmitting(false)
+      setSubmissionLock(false)
     }
   }
 
@@ -287,9 +319,9 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > remainingAmount || isLoading}
+              disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > remainingAmount || isLoading || isSubmitting || submissionLock || hasSubmitted}
             >
-              {isLoading ? 'Recording...' : 'Record Payment'}
+              {isLoading || isSubmitting || submissionLock || hasSubmitted ? 'Recording...' : 'Record Payment'}
             </Button>
           </div>
         </div>

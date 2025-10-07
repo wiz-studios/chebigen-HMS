@@ -542,6 +542,23 @@ export class BillingService {
 
     console.log("BillingService: Recording payment for bill:", request.bill_id)
 
+    // Check if a payment with the same amount and timestamp already exists (within 10 seconds)
+    const recentTimestamp = new Date(Date.now() - 10000).toISOString()
+    const { data: recentPayments, error: recentError } = await this.supabase
+      .from('payment_history')
+      .select('id, amount, paid_at, paid_by')
+      .eq('bill_id', request.bill_id)
+      .eq('amount', request.amount)
+      .eq('paid_by', userId)
+      .gte('paid_at', recentTimestamp)
+
+    if (recentError) {
+      console.error("BillingService: Error checking recent payments:", recentError)
+    } else if (recentPayments && recentPayments.length > 0) {
+      console.log("BillingService: Duplicate payment detected, skipping:", recentPayments)
+      throw new Error("A payment with the same amount was recently recorded by you. Please wait a moment before trying again.")
+    }
+
     // Get current bill status
     const { data: bill, error: billError } = await this.supabase
       .from('bills')
@@ -603,59 +620,12 @@ export class BillingService {
       })
     }
 
-    // Calculate new values
-    const newPaidAmount = (currentBill?.paid_amount || 0) + request.amount
-    const totalAmount = currentBill?.total_amount || 0
-    
-    let newStatus = 'pending'
-    if (newPaidAmount >= totalAmount) {
-      newStatus = 'paid'
-    } else if (newPaidAmount > 0) {
-      newStatus = 'partial'
-    }
-
-    console.log("BillingService: Calculated new values:", {
-      newPaidAmount,
-      totalAmount,
-      newStatus,
-      paymentAmount: request.amount
-    })
-
-    // Update bill status and paid amount
-    const { error: statusUpdateError } = await this.supabase
-      .from('bills')
-      .update({ 
-        status: newStatus,
-        paid_amount: newPaidAmount,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', request.bill_id)
-
-    if (statusUpdateError) {
-      console.error("BillingService: Error updating bill status:", statusUpdateError)
-      throw statusUpdateError
-    } else {
-      console.log("BillingService: Successfully updated bill status to:", newStatus)
-    }
+    // Let the database trigger handle the paid_amount and status calculation
+    // The trigger will automatically update the bill based on payment_history
+    console.log("BillingService: Payment recorded, database trigger will update bill status and paid amount")
 
     // Payment notification will be handled at the application level
-
-    // Verify the update worked
-    const { data: finalBill, error: finalBillError } = await this.supabase
-      .from('bills')
-      .select('status, paid_amount, total_amount')
-      .eq('id', request.bill_id)
-      .single()
-
-    if (finalBillError) {
-      console.error("BillingService: Error verifying final bill state:", finalBillError)
-    } else {
-      console.log("BillingService: Final bill state after update:", {
-        status: finalBill?.status,
-        paidAmount: finalBill?.paid_amount,
-        totalAmount: finalBill?.total_amount
-      })
-    }
+    // Database trigger will automatically update bill status and paid amount
 
     return payment
   }

@@ -30,8 +30,9 @@ export function BillList({ bills, permissions, onRecordPayment, onRefresh }: Bil
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
   const [showDetails, setShowDetails] = useState(false)
 
-  // Debug: Log patient data
-  console.log("=== BILL LIST: Debugging bill data ===")
+  // Debug: Log patient data with timestamp to track re-renders
+  console.log("=== BILL LIST: Debugging bill data ===", new Date().toISOString())
+  console.log("BillList: Received", bills.length, "bills")
   bills.forEach((bill, index) => {
     console.log(`Bill ${index + 1}:`, {
       id: bill.id,
