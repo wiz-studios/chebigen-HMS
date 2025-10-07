@@ -4,10 +4,11 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LogoutButton } from "@/components/auth/logout-button"
 import type { User } from "@/lib/auth"
-import { UserIcon, Calendar, FileText, CreditCard, Heart } from "lucide-react"
+import { UserIcon, Calendar, FileText, CreditCard, Heart, DollarSign, Download, Receipt } from "lucide-react"
 
 interface PatientData {
   id: string
@@ -152,6 +153,10 @@ export function PatientPortal({ user }: PatientPortalProps) {
                   <FileText className="h-4 w-4" />
                   Medical Records
                 </TabsTrigger>
+                <TabsTrigger value="billing" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Billing
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="profile">
@@ -220,6 +225,39 @@ export function PatientPortal({ user }: PatientPortalProps) {
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-500">Medical records coming soon...</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="billing">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Billing & Payments</CardTitle>
+                    <CardDescription>
+                      View your bills and download receipts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Billing Information</h3>
+                      <p className="text-gray-600 mb-4">
+                        Your billing information and payment history will be displayed here.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download My Bills
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Receipt className="h-4 w-4 mr-2" />
+                          Download Receipts
+                        </Button>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-4">
+                        Contact the billing department for assistance with payments or to request copies of your bills.
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
