@@ -131,7 +131,7 @@ export const BILLING_PERMISSIONS: Record<string, BillingPermissions> = {
     canCreateBill: true,
     canViewBill: true,
     canEditBill: true, // Only before payment
-    canRecordPayment: true,
+    canRecordPayment: false, // Receptionists cannot record payments - only accountants
     canGenerateReports: false,
     canDeleteBill: false,
   },
