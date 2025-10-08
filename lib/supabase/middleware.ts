@@ -30,17 +30,30 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Check session validity
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Check if session is expired
+  const isSessionExpired = session ? 
+    (session.expires_at ? session.expires_at < Math.floor(Date.now() / 1000) : false) : 
+    true
+
   // Redirect logic for HMS routes
   if (
     request.nextUrl.pathname !== "/" &&
-    !user &&
+    (!user || isSessionExpired) &&
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/setup") &&
     !request.nextUrl.pathname.startsWith("/superadmin-login")
   ) {
-    console.log("Middleware redirecting to login:", request.nextUrl.pathname)
+    console.log("Middleware redirecting to login:", request.nextUrl.pathname, "Session expired:", isSessionExpired)
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
+    if (isSessionExpired) {
+      url.searchParams.set("error", "session_expired")
+    }
     return NextResponse.redirect(url)
   }
 

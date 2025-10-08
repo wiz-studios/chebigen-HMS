@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { LogoutButton } from "@/components/auth/logout-button"
+import { SessionGuard } from "@/components/auth/session-guard"
 import { PatientManagement } from "@/components/patients/patient-management"
 import { AppointmentManagement } from "@/components/appointments/appointment-management"
 import { ClinicalManagement } from "@/components/clinical/clinical-management"
@@ -386,7 +387,8 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <SessionGuard requireAuth={true} allowedRoles={['admin', 'doctor', 'nurse', 'receptionist', 'accountant']}>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className={`${isMobile ? "px-3" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}`}>
@@ -948,5 +950,6 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </SessionGuard>
   )
 }

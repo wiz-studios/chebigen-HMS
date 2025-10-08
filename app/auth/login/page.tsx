@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Stethoscope, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
@@ -19,6 +19,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  // Check for URL parameters for error messages
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const errorParam = urlParams.get('error')
+    
+    if (errorParam === 'session_expired') {
+      setError('Your session has expired. Please log in again.')
+    } else if (errorParam === 'auth_error') {
+      setError('Authentication error. Please try logging in again.')
+    } else if (errorParam === 'invalid_credentials') {
+      setError('Invalid credentials. Please check your email and password.')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
