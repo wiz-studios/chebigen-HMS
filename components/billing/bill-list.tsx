@@ -14,12 +14,10 @@ import {
   MoreHorizontal,
   Calendar,
   User,
-  DollarSign,
-  Download
+  DollarSign
 } from "lucide-react"
 import { Bill, BillingPermissions } from "@/lib/types/billing"
 import { format } from "date-fns"
-import { InvoiceDownload } from "./invoice-download"
 
 interface BillListProps {
   bills: Bill[]
@@ -31,7 +29,6 @@ interface BillListProps {
 export function BillList({ bills, permissions, onRecordPayment, onRefresh }: BillListProps) {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
   const [showDetails, setShowDetails] = useState(false)
-  const [showInvoiceDownload, setShowInvoiceDownload] = useState(false)
 
   // Debug: Log patient data with timestamp to track re-renders
   console.log("=== BILL LIST: Debugging bill data ===", new Date().toISOString())
@@ -95,11 +92,6 @@ export function BillList({ bills, permissions, onRecordPayment, onRefresh }: Bil
 
   const handleRecordPayment = (bill: Bill) => {
     onRecordPayment(bill)
-  }
-
-  const handleDownloadInvoice = (bill: Bill) => {
-    setSelectedBill(bill)
-    setShowInvoiceDownload(true)
   }
 
   if (bills.length === 0) {
@@ -203,16 +195,6 @@ export function BillList({ bills, permissions, onRecordPayment, onRefresh }: Bil
                         </Button>
                       )}
                       
-                      {/* Download Invoice/Receipt - Available to everyone */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadInvoice(bill)}
-                        title="Download Invoice/Receipt"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      
                       {permissions.canEditBill && bill.status === 'pending' && (
                         <Button
                           variant="ghost"
@@ -244,26 +226,10 @@ export function BillList({ bills, permissions, onRecordPayment, onRefresh }: Bil
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <DialogTitle>Bill Details</DialogTitle>
-                <DialogDescription>
-                  Complete information for bill {selectedBill?.id.slice(0, 8)}...
-                </DialogDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowDetails(false)
-                  setShowInvoiceDownload(true)
-                }}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download
-              </Button>
-            </div>
+            <DialogTitle>Bill Details</DialogTitle>
+            <DialogDescription>
+              Complete information for bill {selectedBill?.id.slice(0, 8)}...
+            </DialogDescription>
           </DialogHeader>
           
           {selectedBill && (
@@ -391,24 +357,6 @@ export function BillList({ bills, permissions, onRecordPayment, onRefresh }: Bil
                 </div>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Invoice Download Dialog */}
-      <Dialog open={showInvoiceDownload} onOpenChange={setShowInvoiceDownload}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Download Invoice/Receipt</DialogTitle>
-            <DialogDescription>
-              Generate and download invoice or receipt for this bill
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBill && (
-            <InvoiceDownload 
-              bill={selectedBill} 
-              userRole="any" // Anyone can download invoices/receipts
-            />
           )}
         </DialogContent>
       </Dialog>

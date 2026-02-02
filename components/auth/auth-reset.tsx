@@ -45,7 +45,7 @@ export function AuthReset() {
   }
 
   return (
-    <Card className="max-w-md mx-auto">
+    <Card className="border-border/60 shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-orange-500" />
@@ -64,7 +64,7 @@ export function AuthReset() {
         )}
         
         {error && (
-          <Alert>
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>

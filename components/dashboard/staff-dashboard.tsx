@@ -124,7 +124,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
 
       // Get today's appointments (role-based filtering)
       const today = new Date().toISOString().split("T")[0]
-      let appointmentQuery = supabase
+      let appointmentQuery: any = supabase
         .from("appointments")
         .select("*", { count: "exact", head: true })
         .gte("scheduled_time", `${today}T00:00:00`)
@@ -137,11 +137,17 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
         appointmentQuery = appointmentQuery.eq("patient_id", user.id)
       } else if (user.role === "lab_tech" || user.role === "pharmacist") {
         // Lab technicians and pharmacists don't see appointments
-        appointmentQuery = appointmentQuery.eq("id", "00000000-0000-0000-0000-000000000000") // Impossible condition
+        appointmentQuery = null // Skip the query
       }
       // Receptionist, nurse, and superadmin see all appointments (no additional filtering)
       
-      const { count: todayAppointments } = await appointmentQuery
+      let todayAppointmentsCount = 0
+      if (appointmentQuery) {
+        const { count } = await appointmentQuery
+        todayAppointmentsCount = count || 0
+      } else {
+        todayAppointmentsCount = 0 // For roles that don't see appointments
+      }
 
       // Get pending lab results or prescriptions (role-based)
       let pendingResults = 0
@@ -167,7 +173,7 @@ export function StaffDashboard({ user }: StaffDashboardProps) {
 
       setStats({
         totalPatients: totalPatients || 0,
-        todayAppointments: todayAppointments || 0,
+        todayAppointments: todayAppointmentsCount || 0,
         pendingResults: pendingResults || 0,
         activeEncounters: activeEncounters || 0,
       })

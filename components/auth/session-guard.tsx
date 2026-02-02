@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw, LogOut } from "lucide-react"
+import { LoginRedirectButton } from "@/components/auth/login-redirect-button"
 
 interface SessionGuardProps {
   children: React.ReactNode
@@ -127,14 +128,7 @@ export function SessionGuard({ children, requireAuth = true, allowedRoles }: Ses
                   Your session has expired or you don't have permission to access this page.
                 </p>
                 <div className="flex gap-2 pt-2">
-                  <Button 
-                    onClick={() => router.push('/auth/login')} 
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Go to Login
-                  </Button>
+                  <LoginRedirectButton size="sm" />
                 </div>
               </div>
             </AlertDescription>

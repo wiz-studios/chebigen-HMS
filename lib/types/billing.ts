@@ -117,7 +117,7 @@ export interface BillingPermissions {
   canDeleteBill: boolean
 }
 
-// Role-based permissions mapping
+// Role-based permissions mapping - Updated to match comprehensive billing specification
 export const BILLING_PERMISSIONS: Record<string, BillingPermissions> = {
   admin: {
     canCreateBill: true,
@@ -127,49 +127,57 @@ export const BILLING_PERMISSIONS: Record<string, BillingPermissions> = {
     canGenerateReports: true,
     canDeleteBill: true,
   },
-  receptionist: {
+  superadmin: {
     canCreateBill: true,
     canViewBill: true,
-    canEditBill: true, // Only before payment
-    canRecordPayment: false, // Receptionists cannot record payments - only accountants
+    canEditBill: true,
+    canRecordPayment: true,
+    canGenerateReports: true,
+    canDeleteBill: true,
+  },
+  receptionist: {
+    canCreateBill: true, // ✅ Create basic bills, add registration/consultation fees
+    canViewBill: true, // ✅ View payment history for assigned patients
+    canEditBill: true, // ✅ Can edit bills before finalization
+    canRecordPayment: false, // ❌ Cannot finalize bills or record payments
     canGenerateReports: false,
     canDeleteBill: false,
   },
   doctor: {
-    canCreateBill: true, // For appointments/consultations
-    canViewBill: true,
-    canEditBill: false,
-    canRecordPayment: false,
+    canCreateBill: true, // 🔸 Auto-generates billing entries when completing consultation
+    canViewBill: true, // 🔸 Can view bills for their patients
+    canEditBill: false, // ❌ Cannot edit totals or finalize
+    canRecordPayment: false, // ❌ Cannot record payments
     canGenerateReports: false,
     canDeleteBill: false,
   },
   nurse: {
-    canCreateBill: true, // For procedures they perform
-    canViewBill: true,
-    canEditBill: false,
-    canRecordPayment: false,
+    canCreateBill: true, // 🔸 Adds billed services automatically (injection, vitals check)
+    canViewBill: true, // 🔸 Can view patient bills
+    canEditBill: false, // ❌ Cannot finalize bills
+    canRecordPayment: false, // ❌ Cannot record payments
     canGenerateReports: false,
     canDeleteBill: false,
   },
-  lab_technician: {
-    canCreateBill: false,
-    canViewBill: false,
-    canEditBill: false,
-    canRecordPayment: false,
+  lab_tech: {
+    canCreateBill: true, // 🔸 Adds cost for lab tests performed
+    canViewBill: true, // ✅ Can view patient bills to confirm test billing
+    canEditBill: false, // ❌ Cannot edit or finalize
+    canRecordPayment: false, // ❌ Cannot record payments
     canGenerateReports: false,
     canDeleteBill: false,
   },
   accountant: {
-    canCreateBill: false,
-    canViewBill: true, // Can see all bills for accounting
-    canEditBill: false,
-    canRecordPayment: true, // Can record payments
-    canGenerateReports: true, // Can generate financial reports
-    canDeleteBill: false,
+    canCreateBill: true, // ✅ Full billing access (create/edit/finalize)
+    canViewBill: true, // ✅ Can see all bills for accounting
+    canEditBill: true, // ✅ Can edit and finalize bills
+    canRecordPayment: true, // ✅ Mark bills as paid, initiate M-PESA STK push
+    canGenerateReports: true, // ✅ Manage discounts/taxes, generate reports
+    canDeleteBill: false, // ❌ Cannot delete bills (audit trail)
   },
   patient: {
     canCreateBill: false,
-    canViewBill: true, // Only their own bills
+    canViewBill: true, // ✅ Only their own bills
     canEditBill: false,
     canRecordPayment: false,
     canGenerateReports: false,

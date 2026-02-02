@@ -28,7 +28,6 @@ import { CreateBillDialog } from "./create-bill-dialog"
 import { BillingReports } from "./billing-reports"
 import { PaymentDialog } from "./payment-dialog"
 import { BillDebugPanel } from "./bill-debug-panel"
-import { BulkInvoiceDownload } from "./bulk-invoice-download"
 
 interface EnhancedBillingDashboardProps {
   userRole: string
@@ -420,7 +419,6 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="bills">Bills</TabsTrigger>
-            <TabsTrigger value="bulk-download">Bulk Download</TabsTrigger>
             {permissions.canGenerateReports && (
               <TabsTrigger value="reports">Reports</TabsTrigger>
             )}
@@ -516,19 +514,6 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full sm:w-auto"
-              onClick={() => {
-                // Switch to bulk download tab
-                const event = new CustomEvent('switch-tab', { detail: 'bulk-download' })
-                window.dispatchEvent(event)
-              }}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Bulk Download
-            </Button>
             {permissions.canGenerateReports && (
               <Button variant="outline" size="sm" className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
@@ -548,10 +533,6 @@ export function EnhancedBillingDashboard({ userRole, userId }: EnhancedBillingDa
             }}
             onRefresh={loadData}
           />
-        </TabsContent>
-
-        <TabsContent value="bulk-download" className="space-y-4">
-          <BulkInvoiceDownload userRole={userRole} userId={userId} />
         </TabsContent>
 
         {permissions.canGenerateReports && (

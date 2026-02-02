@@ -43,6 +43,7 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
     }
   }, [bill, open])
 
+
   const handleSubmit = async () => {
     // Prevent multiple submissions with multiple checks
     if (isSubmitting || isLoading || submissionLock || hasSubmitted) {
@@ -258,6 +259,7 @@ export function PaymentDialog({ open, onOpenChange, bill, onSubmit }: PaymentDia
                 </SelectContent>
               </Select>
             </div>
+
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>

@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Stethoscope, AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, CheckCircle, Eye, EyeOff, LockKeyhole, Mail, User, UserCog } from "lucide-react"
 
 const STAFF_ROLES = [
   { value: "doctor", label: "Doctor" },
@@ -35,6 +35,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
@@ -60,14 +62,10 @@ export default function SignupPage() {
 
     const supabase = createClient()
 
-    // Debug: Check if environment variables are loaded
-    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-    console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Present' : 'Missing')
-
     try {
       // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
         options: {
           emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/login`,
@@ -86,7 +84,7 @@ export default function SignupPage() {
         const { error: userError } = await supabase.from("users").insert({
           id: authData.user.id,
           full_name: formData.fullName,
-          email: formData.email,
+          email: formData.email.trim(),
           password_hash: "", // This will be handled by Supabase Auth
           role: formData.role,
           status: "pending", // Requires SuperAdmin approval
@@ -125,141 +123,159 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="w-full max-w-md">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="p-3 bg-green-600 rounded-full">
-                  <CheckCircle className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <CardTitle className="text-xl">Registration Submitted</CardTitle>
-              <CardDescription>Your account is pending approval</CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-gray-600 mb-4">
-                Thank you for registering! Your account has been submitted for approval by a SuperAdmin. You will
-                receive an email notification once your account is approved.
-              </p>
-              <Button onClick={() => router.push("/auth/login")} className="w-full">
-                Return to Login
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card className="border-border/60 shadow-lg">
+        <CardHeader className="space-y-2 text-center">
+          <div className="mx-auto grid size-11 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+            <CheckCircle className="size-6" />
+          </div>
+          <CardTitle className="text-2xl">Registration submitted</CardTitle>
+          <CardDescription>Your account is pending approval by a SuperAdmin.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            You can sign in once your account is activated. If this takes longer than expected, contact your
+            administrator.
+          </p>
+          <Button onClick={() => router.push("/auth/login")} className="w-full">
+            Return to login
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col gap-6">
-          {/* Header */}
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="p-3 bg-blue-600 rounded-full">
-                <Stethoscope className="h-8 w-8 text-white" />
-              </div>
+    <Card className="border-border/60 shadow-lg">
+      <CardHeader className="space-y-2">
+        <CardTitle className="text-2xl">Create account</CardTitle>
+        <CardDescription>Registration requires SuperAdmin approval.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full name</Label>
+            <div className="relative">
+              <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="fullName"
+                type="text"
+                placeholder="Dr. John Smith"
+                required
+                value={formData.fullName}
+                onChange={(e) => handleInputChange("fullName", e.target.value)}
+                className="pl-9"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Chebigen HMS</h1>
-            <p className="text-gray-600 mt-2">Create your account</p>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Sign Up</CardTitle>
-              <CardDescription>Register for a new account (requires approval)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="Dr. John Smith"
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => handleInputChange("fullName", e.target.value)}
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="doctor@hospital.com"
+                required
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="doctor@hospital.com"
-                    required
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <div className="relative">
+              <UserCog className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
+                <SelectTrigger className="pl-9">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFF_ROLES.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STAFF_ROLES.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                className="pl-9 pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                  />
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <div className="relative">
+              <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                className="pl-9 pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  />
-                </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Creating account..." : "Create account"}
+          </Button>
+        </form>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating Account..." : "Create Account"}
-                </Button>
-              </form>
-
-              <div className="mt-6 text-center text-sm">
-                <p className="text-gray-600">
-                  Already have an account?{" "}
-                  <Link href="/auth/login" className="text-blue-600 hover:underline">
-                    Sign in here
-                  </Link>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Already have an account?</span>
+          <Link href="/auth/login" className="font-medium text-primary hover:underline">
+            Sign in
+          </Link>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

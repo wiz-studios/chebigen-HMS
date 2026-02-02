@@ -141,10 +141,6 @@ export default function SetupPage() {
     try {
       const supabase = createClient()
 
-      // Debug: Check environment variables
-      console.log('Setup - Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-      console.log('Setup - Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Present' : 'Missing')
-
       // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: adminData.email,
@@ -250,22 +246,18 @@ export default function SetupPage() {
 
   if (setupComplete) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-6">
-        <div className="w-full max-w-2xl">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 bg-green-600 rounded-full">
-                  <CheckCircle className="h-12 w-12 text-white" />
-                </div>
+      <Card className="border-border/60 shadow-lg">
+            <CardHeader className="space-y-2 text-center">
+              <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+                <CheckCircle className="size-7" />
               </div>
-              <CardTitle className="text-3xl">Setup Complete!</CardTitle>
-              <CardDescription className="text-lg">Your Chebigen HMS is ready to use</CardDescription>
+              <CardTitle className="text-3xl">Setup complete</CardTitle>
+              <CardDescription className="text-base">Your Chebigen HMS is ready to use.</CardDescription>
             </CardHeader>
-            <CardContent className="text-center space-y-6">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-green-800 mb-2">What's Next?</h3>
-                <ul className="text-green-700 space-y-1 text-sm">
+            <CardContent className="space-y-6">
+              <div className="rounded-xl border bg-card p-4">
+                <h3 className="font-semibold">What&apos;s next</h3>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                   <li>• Sign in with your SuperAdmin account</li>
                   <li>• Approve user registrations</li>
                   <li>• Configure system settings</li>
@@ -273,41 +265,38 @@ export default function SetupPage() {
                 </ul>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 text-center">
                 <Button onClick={handleCompleteSetup} className="w-full" size="lg">
-                  Go to SuperAdmin Login
+                  Go to SuperAdmin login
                 </Button>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Keep your SuperAdmin credentials secure. This setup process cannot be repeated.
                 </p>
               </div>
             </CardContent>
-          </Card>
-        </div>
-      </div>
+      </Card>
     )
   }
 
   const progress = ((currentStep - 1) / (SETUP_STEPS.length - 1)) * 100
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="w-full max-w-2xl">
-        <div className="flex flex-col gap-6">
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="flex flex-col gap-6">
           {/* Header */}
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-4 bg-blue-600 rounded-full">
-                <Shield className="h-12 w-12 text-white" />
+              <div className="grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                <Shield className="size-6" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">System Setup</h1>
-            <p className="text-gray-600 mt-2">Configure your Chebigen HMS</p>
+            <h1 className="text-3xl font-bold text-foreground">System setup</h1>
+            <p className="mt-2 text-muted-foreground">Configure your Chebigen HMS</p>
           </div>
 
           {/* Progress */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>
                 Step {currentStep} of {SETUP_STEPS.length}
               </span>
@@ -323,10 +312,10 @@ export default function SetupPage() {
                 key={step.id}
                 className={`text-center p-3 rounded-lg border ${
                   step.id === currentStep
-                    ? "bg-blue-100 border-blue-300"
+                    ? "bg-primary/10 border-primary/20"
                     : step.id < currentStep
-                      ? "bg-green-100 border-green-300"
-                      : "bg-gray-50 border-gray-200"
+                      ? "bg-emerald-500/10 border-emerald-500/20"
+                      : "bg-muted/50 border-border"
                 }`}
               >
                 <div className="flex justify-center mb-2">{step.icon}</div>
@@ -335,7 +324,7 @@ export default function SetupPage() {
             ))}
           </div>
 
-          <Card>
+          <Card className="border-border/60 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {SETUP_STEPS[currentStep - 1]?.icon}
@@ -346,13 +335,13 @@ export default function SetupPage() {
             <CardContent>
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-green-800">Database connection verified</span>
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                    <span className="text-emerald-700 dark:text-emerald-200">Database connection verified</span>
                   </div>
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-green-800">System requirements met</span>
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                    <span className="text-emerald-700 dark:text-emerald-200">System requirements met</span>
                   </div>
                 </div>
               )}
@@ -407,9 +396,9 @@ export default function SetupPage() {
 
               {currentStep === 3 && (
                 <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h3 className="font-semibold text-blue-800 mb-2">Security Features Enabled</h3>
-                    <ul className="text-blue-700 space-y-1 text-sm">
+                  <div className="rounded-xl border bg-card p-4">
+                    <h3 className="mb-2 font-semibold">Security features enabled</h3>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
                       <li>• Row Level Security (RLS) for data protection</li>
                       <li>• Audit logging for all user actions</li>
                       <li>• Role-based access control (RBAC)</li>
@@ -475,7 +464,6 @@ export default function SetupPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   )
 }

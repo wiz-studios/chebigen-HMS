@@ -35,14 +35,27 @@ export async function updateSession(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Check if session is expired
+  // Check if session is expired or close to expiring
+  const now = Math.floor(Date.now() / 1000)
   const isSessionExpired = session ? 
-    (session.expires_at ? session.expires_at < Math.floor(Date.now() / 1000) : false) : 
+    (session.expires_at ? session.expires_at < now : false) : 
     true
+  
+  // If session exists and is close to expiring (within 5 minutes), refresh it
+  if (session?.expires_at && session.expires_at - now < 300) {
+    const { data } = await supabase.auth.refreshSession()
+    if (data.session) {
+      // Update the session in the response
+      supabaseResponse = NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      })
+    }
+  }
 
   // Redirect logic for HMS routes
   if (
-    request.nextUrl.pathname !== "/" &&
     (!user || isSessionExpired) &&
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/setup") &&

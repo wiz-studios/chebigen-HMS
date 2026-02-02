@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { PatientRegistrationForm } from "@/components/patients/patient-registration-form"
 import { PatientDetailsDialog } from "@/components/patients/patient-details-dialog"
+import { usePaginatedList } from "@/hooks/usePaginatedList"
 import type { UserRole } from "@/lib/auth"
-import { Search, UserPlus, Eye, Edit, AlertCircle, CheckCircle } from "lucide-react"
+import { Search, UserPlus, Eye, Edit, AlertCircle, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 
 interface Patient {
   id: string
@@ -36,16 +38,52 @@ interface PatientManagementProps {
   onStatsUpdate: () => void
 }
 
-export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientManagementProps) {
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientManagementProps): React.ReactElement {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
   const [showPatientDetails, setShowPatientDetails] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(10)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const queryClient = useQueryClient()
+
+  const filterPatients = React.useCallback(() => {
+    let filtered = patients
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (patient: Patient) =>
+          patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          patient.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          patient.contact.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    setFilteredPatients(filtered)
+  }, [patients, searchTerm])
+
+  // Use the paginated list hook
+  const {
+    data: patientsData,
+    isFetching,
+    error: queryError,
+  } = usePaginatedList<Patient>(
+    'patients',
+    {
+      page,
+      limit: pageSize,
+      filters: {
+        search: searchTerm,
+        ...(userRole === 'patient' ? { user_id: userId } : {}),
+      },
+      sortBy: 'created_at',
+      sortOrder: 'desc',
+    }
+  )
 
   useEffect(() => {
     loadPatients()
@@ -53,7 +91,7 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
 
   useEffect(() => {
     filterPatients()
-  }, [patients, searchTerm])
+  }, [filterPatients])
 
   // Access control functions based on the HMS Access Control Matrix
   const canViewPatients = () => {
@@ -145,21 +183,7 @@ export function PatientManagement({ userRole, userId, onStatsUpdate }: PatientMa
     }
   }
 
-  const filterPatients = () => {
-    let filtered = patients
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (patient) =>
-          patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          patient.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          patient.contact.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    }
-
-    setFilteredPatients(filtered)
-  }
 
   const handlePatientRegistered = () => {
     setShowRegistrationForm(false)

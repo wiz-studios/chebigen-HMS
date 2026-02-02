@@ -20,6 +20,14 @@ export default function HomePage() {
     const supabase = createClient()
 
     try {
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        router.push("/auth/login")
+        return
+      }
+
       // Check if SuperAdmin exists
       const { data, error } = await supabase.from("users").select("id").eq("role", "superadmin").limit(1)
 
@@ -29,8 +37,8 @@ export default function HomePage() {
       } else if (!data || data.length === 0) {
         setNeedsSetup(true)
       } else {
-        // System is set up, redirect to login
-        router.push("/auth/login")
+        // System is set up and user is authenticated, redirect to dashboard
+        router.push("/dashboard")
       }
     } catch (error) {
       console.error("System check failed:", error)

@@ -9,9 +9,9 @@ export interface SessionTimeoutConfig {
 }
 
 const DEFAULT_CONFIG: SessionTimeoutConfig = {
-  warningTime: 300000, // 5 minutes
-  autoLogoutTime: 60000, // 1 minute
-  checkInterval: 30000 // 30 seconds
+  warningTime: 1800000, // 30 minutes
+  autoLogoutTime: 300000, // 5 minutes
+  checkInterval: 60000 // 1 minute
 }
 
 export class SessionTimeoutManager {

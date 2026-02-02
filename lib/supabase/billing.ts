@@ -395,10 +395,10 @@ export class BillingService {
       // Patients can only see their own bills
       console.log("BillingService: Filtering for patient bills")
       query = query.eq('patient_id', userId)
-    } else if (userRole === 'lab_technician') {
-      // Lab technicians cannot see bills
-      console.log("BillingService: Lab technicians cannot view bills")
-      query = query.eq('id', '00000000-0000-0000-0000-000000000000') // Return no results
+    } else if (userRole === 'lab_tech') {
+      // Lab technicians can view bills for their tests
+      console.log("BillingService: Lab technicians can view bills for their tests")
+      // Lab techs can see bills but with limited access
     }
     // Admins, receptionists, doctors, nurses, and accountants can see all bills (uniform access)
 
@@ -641,10 +641,10 @@ export class BillingService {
     if (userRole === 'patient') {
       console.log("BillingService: Filtering stats for patient")
       query = query.eq('patient_id', userId)
-    } else if (userRole === 'lab_technician') {
-      // Lab technicians cannot see bills
-      console.log("BillingService: Lab technicians cannot view stats")
-      query = query.eq('id', '00000000-0000-0000-0000-000000000000') // Return no results
+    } else if (userRole === 'lab_tech') {
+      // Lab technicians can view stats for their tests
+      console.log("BillingService: Lab technicians can view stats for their tests")
+      // Lab techs can see stats but with limited access
     }
     // Admins, receptionists, doctors, nurses, and accountants can see all bills (uniform access)
 

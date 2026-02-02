@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,10 +15,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AppointmentSchedulingForm } from "@/components/appointments/appointment-scheduling-form"
 import { AppointmentCalendar } from "@/components/appointments/appointment-calendar"
 import { formatToEATDisplay, isAppointmentOverdue, formatOverdueDuration, getCurrentEATTime } from "@/lib/time-utils"
+import { usePaginatedList } from "@/hooks/usePaginatedList"
 import type { UserRole } from "@/lib/auth"
-import { Calendar, Search, Plus, Eye, Clock, CheckCircle, XCircle, AlertCircle, AlertTriangle } from "lucide-react"
+import { Calendar, Search, Plus, Eye, Clock, CheckCircle, XCircle, AlertCircle, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react"
+import { useQueryClient } from 'react-query'
+import { format } from 'date-fns'
+import { AppointmentDetailsDialog } from "./appointment-details-dialog"
+import { useCallback, useEffect } from "react"
 
-interface Appointment {
+interface PaginatedResult<T> {
+  data: T[]
+  meta: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
+export interface Appointment {
   id: string
   patient_id: string
   provider_id: string
@@ -46,186 +61,96 @@ interface AppointmentManagementProps {
 }
 
 export function AppointmentManagement({ userRole, userId, onStatsUpdate }: AppointmentManagementProps) {
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [dateFilter, setDateFilter] = useState<string>("today")
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list")
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [showSchedulingForm, setShowSchedulingForm] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(10)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    loadAppointments()
-  }, [userId, dateFilter])
-
-  useEffect(() => {
-    filterAppointments()
-  }, [appointments, searchTerm, statusFilter])
-
-  const loadAppointments = async () => {
-    const supabase = createClient()
-    setIsLoading(true)
-
-    try {
-      // First, get appointments
-      let query = supabase.from("appointments").select("*")
-
-      // Filter by date using EAT
-      const today = getCurrentEATTime()
-      if (dateFilter === "today") {
-        const todayStr = today.toISOString().split("T")[0]
-        query = query.gte("scheduled_time", `${todayStr}T00:00:00`).lt("scheduled_time", `${todayStr}T23:59:59`)
-      } else if (dateFilter === "week") {
-        const weekStart = new Date(today.setDate(today.getDate() - today.getDay()))
-        const weekEnd = new Date(today.setDate(today.getDate() - today.getDay() + 6))
-        query = query
-          .gte("scheduled_time", weekStart.toISOString().split("T")[0] + "T00:00:00")
-          .lte("scheduled_time", weekEnd.toISOString().split("T")[0] + "T23:59:59")
-      }
-
-      // Filter by user role for appointment visibility (based on HMS Access Control Matrix)
-      if (userRole === "doctor" && userId) {
-        // Doctors: Create/manage own appointments
-        query = query.eq("provider_id", userId)
-      } else if (userRole === "patient" && userId) {
-        // Patients: View own only
-        query = query.eq("patient_id", userId)
-      } else if (userRole === "nurse" && userId) {
-        // Nurses: View/manage assigned appointments
-        // For now, we'll show all appointments, but this could be filtered by assigned patients
-        // TODO: Implement nurse assignment system for more granular control
-      } else if (userRole === "accountant") {
-        // Accountants: No access to appointments
-        setAppointments([])
-        setError("Accountants don't have access to appointment management. Use the Billing section for financial records.")
-        return
-      } else if (userRole === "lab_tech" || userRole === "pharmacist") {
-        // Lab technicians and pharmacists: No access to appointments
-        setAppointments([])
-        setError(userRole === "lab_tech" ? 
-          "Lab technicians should use the Clinical tab to view lab orders and test requests." :
-          "Pharmacists should use the Clinical tab to view prescriptions and medication orders.")
-        return
-      }
-      // Superadmin and receptionist see all appointments (no additional filtering)
-
-      const { data: appointments, error: appointmentsError } = await query.order("scheduled_time", { ascending: true })
-
-      if (appointmentsError) {
-        console.error("Error loading appointments:", appointmentsError)
-        throw appointmentsError
-      }
-
-      if (!appointments || appointments.length === 0) {
-        setAppointments([])
-        return
-      }
-
-      // Get unique patient IDs and provider IDs
-      const patientIds = [...new Set(appointments.map(apt => apt.patient_id))]
-      const providerIds = [...new Set(appointments.map(apt => apt.provider_id))]
-
-      // Fetch patient data
-      const { data: patients, error: patientsError } = await supabase
-        .from("patients")
-        .select("id, first_name, last_name, mrn, contact")
-        .in("id", patientIds)
-
-      if (patientsError) {
-        console.error("Error loading patients:", patientsError)
-        throw patientsError
-      }
-
-      // Fetch doctor data
-      const { data: doctors, error: doctorsError } = await supabase
-        .from("users")
-        .select("id, full_name")
-        .in("id", providerIds)
-
-      if (doctorsError) {
-        console.error("Error loading doctors:", doctorsError)
-        throw doctorsError
-      }
-
-      // Combine the data
-      const enrichedAppointments = appointments.map(appointment => ({
-        ...appointment,
-        patient: patients?.find(p => p.id === appointment.patient_id),
-        doctor: doctors?.find(d => d.id === appointment.provider_id)
-      }))
-
-      console.log("Loaded appointments:", enrichedAppointments)
-      console.log("First appointment patient data:", enrichedAppointments?.[0]?.patient)
-      
-      setAppointments(enrichedAppointments)
-    } catch (error) {
-      setError("Failed to load appointments")
-      console.error("Error loading appointments:", error)
-    } finally {
-      setIsLoading(false)
+  // Calculate date range for filtering
+  const getDateRange = () => {
+    const today = getCurrentEATTime()
+    switch (dateFilter) {
+      case "today":
+        return {
+          start: format(today, "yyyy-MM-dd"),
+          end: format(today, "yyyy-MM-dd")
+        }
+      case "week":
+        const weekEnd = new Date(today)
+        weekEnd.setDate(weekEnd.getDate() + 7)
+        return {
+          start: format(today, "yyyy-MM-dd"),
+          end: format(weekEnd, "yyyy-MM-dd")
+        }
+      default:
+        return null
     }
   }
 
-  const filterAppointments = () => {
-    let filtered = appointments
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (appointment) =>
-          appointment.patient?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          appointment.patient?.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          appointment.patient?.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          appointment.doctor?.full_name.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+  // Use the paginated list hook with filters
+  const {
+    data: appointmentsData,
+    isLoading,
+    error: queryError,
+    isFetching
+  } = usePaginatedList<Appointment>(
+    'appointments',
+    {
+      page,
+      limit: pageSize,
+      filters: {
+        search: searchTerm,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        date_range: getDateRange(),
+        ...(userRole === "doctor" ? { provider_id: userId } : {}),
+        ...(userRole === "patient" ? { patient_id: userId } : {}),
+        ...(userRole === "accountant" || userRole === "lab_tech" || userRole === "pharmacist" ? { provider_id: "none" } : {})
+      },
+      sortBy: 'scheduled_time',
+      sortOrder: 'asc'
     }
+  )
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((appointment) => appointment.status === statusFilter)
-    }
+  // Handle search with debounce
+  const handleSearch = useCallback((value: string) => {
+    const timeoutId = setTimeout(() => {
+      setSearchTerm(value)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
-    setFilteredAppointments(filtered)
-  }
+  // Cleanup on unmount
+  useEffect(() => {
+    // Call handleSearch with an empty string and use its returned cleanup function as the effect cleanup.
+    // This ensures the debounce timer (if any) is cleared on unmount.
+    return handleSearch("")
+  }, [handleSearch])
 
   const handleStatusUpdate = async (appointmentId: string, newStatus: Appointment["status"]) => {
     const supabase = createClient()
-    setError(null)
+    
+    // Optimistic update
+    queryClient.setQueryData(['appointments', { page, limit: pageSize }], (old: any) => ({
+      ...old,
+      data: old.data.map((apt: Appointment) =>
+        apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+      )
+    }))
 
     try {
-      // Debug: Log the current user and appointment details
-      const { data: { user } } = await supabase.auth.getUser()
-      console.log("Current user ID:", user?.id)
-      console.log("User role:", userRole)
-      console.log("Appointment ID:", appointmentId)
-      console.log("New status:", newStatus)
-
-      // Debug: Check the appointment details
-      const { data: appointmentData, error: fetchError } = await supabase
+      const { error } = await supabase
         .from("appointments")
-        .select("provider_id")
+        .update({ status: newStatus })
         .eq("id", appointmentId)
-        .single()
-      
-      if (fetchError) {
-        console.error("Error fetching appointment:", fetchError)
-      } else {
-        console.log("Appointment provider_id:", appointmentData?.provider_id)
-        console.log("Is current user the provider?", user?.id === appointmentData?.provider_id)
-      }
 
-      const { error } = await supabase.from("appointments").update({ status: newStatus }).eq("id", appointmentId)
-
-      if (error) {
-        console.error("Update error details:", error)
-        console.error("Error code:", error.code)
-        console.error("Error message:", error.message)
-        console.error("Error details:", error.details)
-        console.error("Error hint:", error.hint)
-        throw error
-      }
+      if (error) throw error
 
       // Log the status change
       await supabase.from("audit_logs").insert({
@@ -240,51 +165,30 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
         severity: "low",
       })
 
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries('appointments')
+      if (onStatsUpdate) onStatsUpdate()
+      
       setSuccess(`Appointment ${newStatus} successfully`)
-      console.log(`Appointment status updated to: ${newStatus}`)
-      
-      // Immediately update the local state to reflect the change
-      setAppointments(prevAppointments => 
-        prevAppointments.map(appointment => 
-          appointment.id === appointmentId 
-            ? { ...appointment, status: newStatus }
-            : appointment
-        )
-      )
-      
-      // Reload appointments to get updated data from database
-      await loadAppointments()
-      onStatsUpdate?.()
-      
-      // Clear success message after a delay
-      setTimeout(() => {
-        setSuccess(null)
-      }, 3000)
+      setTimeout(() => setSuccess(null), 3000)
     } catch (error) {
-      setError("Failed to update appointment status")
-      console.error("Error updating appointment:", error)
+      console.error("Error updating appointment status:", error)
+      // Revert optimistic update on error by invalidating the query
+      queryClient.invalidateQueries('appointments')
     }
   }
 
   const handleAppointmentScheduled = () => {
     setShowSchedulingForm(false)
-    setSuccess("Appointment scheduled successfully")
-    loadAppointments()
-    onStatsUpdate?.()
+    queryClient.invalidateQueries('appointments')
+    if (onStatsUpdate) onStatsUpdate()
   }
 
-  const canScheduleAppointments = () => {
-    return ["superadmin", "receptionist", "doctor", "nurse"].includes(userRole)
-  }
-
+  const canScheduleAppointments = ["superadmin", "receptionist", "doctor"].includes(userRole)
+  
   const canUpdateStatus = (appointment?: Appointment) => {
-    // Only superadmins can update any appointment
     if (userRole === "superadmin") return true
-    
-    // Only the assigned doctor can update their own appointments
     if (userRole === "doctor" && appointment && appointment.provider_id === userId) return true
-    
-    // Receptionists and nurses cannot update appointment status
     return false
   }
 
@@ -332,12 +236,13 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
   }
 
   return (
-    <div className="space-y-6">
-      {/* Alerts */}
-      {error && (
+    <div className="space-y-4">
+      {queryError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            Error loading appointments: {queryError.message}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -375,7 +280,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                   <span className="hidden sm:inline">Calendar</span>
                 </Button>
               </div>
-              {canScheduleAppointments() && (
+              {canScheduleAppointments && (
                 <Button 
                   size="sm"
                   className="w-full sm:w-auto"
@@ -391,7 +296,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
         <CardContent>
           {viewMode === "calendar" ? (
             <AppointmentCalendar
-              appointments={appointments}
+              appointments={(appointmentsData as PaginatedResult<Appointment>)?.data || []}
               onAppointmentClick={(appointment) => setSelectedAppointment(appointment)}
               userRole={userRole}
             />
@@ -405,8 +310,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                       <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         placeholder="Search appointments..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearch(e.target.value)}
                         className="pl-10 text-sm"
                       />
                     </div>
@@ -461,7 +365,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                           Loading appointments...
                         </TableCell>
                       </TableRow>
-                    ) : filteredAppointments.length === 0 ? (
+                    ) : (appointmentsData as PaginatedResult<Appointment>)?.data.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8">
                           {searchTerm || statusFilter !== "all"
@@ -470,7 +374,7 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredAppointments.map((appointment) => (
+                      ((appointmentsData as PaginatedResult<Appointment>)?.data || []).map((appointment) => (
                         <TableRow key={appointment.id}>
                           <TableCell>
                             <div>
@@ -499,48 +403,21 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                           <TableCell>{getAppointmentTypeBadge(appointment.appointment_type || "consultation")}</TableCell>
                           <TableCell>{getStatusBadge(appointment.status)}</TableCell>
                           <TableCell>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                              <Button size="sm" variant="outline" onClick={() => setSelectedAppointment(appointment)} className="w-full sm:w-auto">
-                                <Eye className="h-4 w-4 sm:mr-1" />
-                                <span className="hidden sm:inline">View</span>
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedAppointment(appointment)}
+                              >
+                                <Eye className="h-4 w-4" />
                               </Button>
                               {canUpdateStatus(appointment) && appointment.status === "scheduled" && (
-                                <Button size="sm" onClick={() => handleStatusUpdate(appointment.id, "confirmed")} className="w-full sm:w-auto">
-                                  <CheckCircle className="h-4 w-4 sm:mr-1" />
-                                  <span className="hidden sm:inline">Confirm</span>
-                                </Button>
-                              )}
-                              {canUpdateStatus(appointment) && appointment.status === "confirmed" && (
-                                <Button size="sm" onClick={() => handleStatusUpdate(appointment.id, "arrived")} className="w-full sm:w-auto">
-                                  <CheckCircle className="h-4 w-4 sm:mr-1" />
-                                  <span className="hidden sm:inline">Mark Arrived</span>
-                                </Button>
-                              )}
-                              {canUpdateStatus(appointment) && appointment.status === "arrived" && (
-                                <Button size="sm" onClick={() => handleStatusUpdate(appointment.id, "in_progress")} className="w-full sm:w-auto">
-                                  <Clock className="h-4 w-4 sm:mr-1" />
-                                  <span className="hidden sm:inline">Start</span>
-                                </Button>
-                              )}
-                              {canUpdateStatus(appointment) && appointment.status === "in_progress" && (
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => {
-                                    if (isAppointmentOverdue(appointment.scheduled_time, appointment.status)) {
-                                      const confirmComplete = window.confirm(
-                                        `This appointment is ${formatOverdueDuration(appointment.scheduled_time)}. Are you sure you want to mark it as completed?`
-                                      )
-                                      if (confirmComplete) {
-                                        handleStatusUpdate(appointment.id, "completed")
-                                      }
-                                    } else {
-                                      handleStatusUpdate(appointment.id, "completed")
-                                    }
-                                  }} 
-                                  className="w-full sm:w-auto"
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStatusUpdate(appointment.id, "confirmed")}
                                 >
-                                  <CheckCircle className="h-4 w-4 sm:mr-1" />
-                                  <span className="hidden sm:inline">Complete</span>
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
                                 </Button>
                               )}
                             </div>
@@ -551,6 +428,34 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination Controls */}
+              {((appointmentsData as PaginatedResult<Appointment>)?.meta?.totalPages ?? 0) > 1 && (
+                <div className="flex items-center justify-between space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1 || isLoading || isFetching}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {page} of {(appointmentsData as PaginatedResult<Appointment>)?.meta?.totalPages}
+                    {isFetching && !isLoading && " (Refreshing...)"}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === (appointmentsData as PaginatedResult<Appointment>)?.meta?.totalPages || isLoading || isFetching}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -558,10 +463,12 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
 
       {/* Appointment Scheduling Dialog */}
       <Dialog open={showSchedulingForm} onOpenChange={setShowSchedulingForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Schedule New Appointment</DialogTitle>
-            <DialogDescription>Book an appointment for a patient</DialogDescription>
+            <DialogTitle>Schedule Appointment</DialogTitle>
+            <DialogDescription>
+              Enter appointment details below.
+            </DialogDescription>
           </DialogHeader>
           <AppointmentSchedulingForm
             onSuccess={handleAppointmentScheduled}
@@ -572,87 +479,16 @@ export function AppointmentManagement({ userRole, userId, onStatsUpdate }: Appoi
         </DialogContent>
       </Dialog>
 
-      {/* Appointment Details Dialog */}
+      {/* Appointment Details/Update Dialog */}
       {selectedAppointment && (
-        <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Appointment Details</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Patient</Label>
-                  <p className="font-medium">
-                    {selectedAppointment.patient?.first_name} {selectedAppointment.patient?.last_name}
-                  </p>
-                  <p className="text-sm text-gray-500">MRN: {selectedAppointment.patient?.mrn}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Doctor</Label>
-                  <p className="font-medium">{selectedAppointment.doctor?.full_name}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Date & Time</Label>
-                  <p className="font-medium">{formatToEATDisplay(selectedAppointment.scheduled_time)}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Duration</Label>
-                  <p className="font-medium">{selectedAppointment.duration || 30} minutes</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Type</Label>
-                  <div>{getAppointmentTypeBadge(selectedAppointment.appointment_type || "consultation")}</div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Status</Label>
-                  <div>{getStatusBadge(selectedAppointment.status)}</div>
-                </div>
-              </div>
-              {selectedAppointment.notes && (
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Notes</Label>
-                  <p className="text-sm">{selectedAppointment.notes}</p>
-                </div>
-              )}
-              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setSelectedAppointment(null)} className="w-full sm:w-auto">
-                  Close
-                </Button>
-                {canUpdateStatus(selectedAppointment) && (
-                  <Select
-                    value={selectedAppointment.status}
-                    onValueChange={(value) =>
-                      handleStatusUpdate(selectedAppointment.id, value as Appointment["status"])
-                    }
-                  >
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="arrived">Arrived</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                      <SelectItem value="no_show">No Show</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AppointmentDetailsDialog
+          appointment={selectedAppointment}
+          open={!!selectedAppointment}
+          onOpenChange={() => setSelectedAppointment(null)}
+          onStatusUpdate={handleStatusUpdate}
+          canUpdateStatus={canUpdateStatus}
+        />
       )}
     </div>
   )
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>
 }
