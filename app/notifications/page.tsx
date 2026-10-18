@@ -6,7 +6,7 @@ import { NotificationPreferences } from "@/components/notifications/notification
 import { NotificationTemplates } from "@/components/notifications/notification-templates"
 
 export default async function NotificationsPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
